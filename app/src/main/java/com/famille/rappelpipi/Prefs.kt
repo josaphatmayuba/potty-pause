@@ -1,0 +1,96 @@
+package com.famille.rappelpipi
+
+import android.content.Context
+
+object Prefs {
+    private fun p(c: Context) = c.getSharedPreferences("rappel", Context.MODE_PRIVATE)
+
+    fun intervalMin(c: Context) = p(c).getInt("interval", 45)
+    fun lockMin(c: Context) = p(c).getInt("lock", 5)
+    // Message brut enregistre ; "" = defaut localise (voir shownMessage).
+    fun message(c: Context) = p(c).getString("message", "")!!
+
+    // Langue : "fr", "en" ou "" (= langue du telephone).
+    fun language(c: Context) = p(c).getString("language", "")!!
+    fun setLanguage(c: Context, v: String) = p(c).edit().putString("language", v).apply()
+
+    private fun stringIn(c: Context, lang: String, id: Int): String {
+        val conf = android.content.res.Configuration(c.resources.configuration)
+        conf.setLocale(java.util.Locale(lang))
+        return c.createConfigurationContext(conf).getString(id)
+    }
+
+    // True si le texte est un des messages par defaut (FR ou EN) : on le stocke vide.
+    fun isDefaultMessage(c: Context, text: String): Boolean {
+        val t = text.trim()
+        return t.isEmpty() || t == stringIn(c, "fr", R.string.default_message) || t == stringIn(c, "en", R.string.default_message)
+    }
+
+    // Message a afficher : valeur du parent, ou defaut dans la langue courante du contexte.
+    fun shownMessage(c: Context): String {
+        val m = message(c)
+        return if (isDefaultMessage(c, m)) c.getString(R.string.default_message) else m
+    }
+
+    // Contexte avec la langue choisie (ou celui du telephone si "").
+    fun localized(c: Context): Context {
+        val lang = language(c)
+        if (lang.isEmpty()) return c
+        val conf = android.content.res.Configuration(c.resources.configuration)
+        val loc = java.util.Locale(lang)
+        java.util.Locale.setDefault(loc)
+        conf.setLocale(loc)
+        return c.createConfigurationContext(conf)
+    }
+    fun pin(c: Context) = p(c).getString("pin", "")!!
+    fun enabled(c: Context) = p(c).getBoolean("enabled", false)
+
+    fun childName(c: Context) = p(c).getString("childName", "")!!
+    fun diamonds(c: Context) = p(c).getInt("diamonds", 0)
+
+    // +1 diamant ; a 5 le coffre s'ouvre : on renvoie 5 et le compteur repart a 0.
+    fun addDiamond(c: Context): Int {
+        val n = diamonds(c) + 1
+        return if (n >= 5) { p(c).edit().putInt("diamonds", 0).apply(); 5 }
+        else { p(c).edit().putInt("diamonds", n).apply(); n }
+    }
+
+    fun save(c: Context, interval: Int, lock: Int, message: String, pin: String, name: String) {
+        p(c).edit()
+            .putInt("interval", interval)
+            .putInt("lock", lock)
+            .putString("message", message)
+            .putString("pin", pin)
+            .putString("childName", name)
+            .apply()
+    }
+
+    // Fin du blocage en heure murale : survit a un kill du service ou a un reboot (0 = pas de blocage).
+    fun lockedUntilWall(c: Context) = p(c).getLong("lockedUntilWall", 0L)
+    fun setLockedUntilWall(c: Context, v: Long) = p(c).edit().putLong("lockedUntilWall", v).apply()
+
+    // Personnage au hasard a chaque rappel (0..15), jamais le meme deux fois de suite.
+    fun nextCharacter(c: Context): Int {
+        val last = p(c).getInt("char", -1)
+        var n = kotlin.random.Random.nextInt(16)
+        if (n == last) n = (n + 1 + kotlin.random.Random.nextInt(15)) % 16
+        p(c).edit().putInt("char", n).apply()
+        return n
+    }
+
+    fun setEnabled(c: Context, value: Boolean) = p(c).edit().putBoolean("enabled", value).apply()
+
+    // Theme de l'ecran de rappel ("blocs", une idee, ou "hasard").
+    fun theme(c: Context) = p(c).getString("theme", "blocs")!!
+    // Animation du theme blocs : "hasard" ou "0".."5".
+    fun blocsAnim(c: Context) = p(c).getString("blocsAnim", "hasard")!!
+    // Image choisie pour le theme photo (URI persistante), ou null.
+    fun imageUri(c: Context): String? = p(c).getString("imageUri", null)
+    // Dernier theme affiche (pour ne pas tirer deux fois le meme au hasard).
+    fun lastTheme(c: Context) = p(c).getString("lastTheme", "")!!
+
+    fun setTheme(c: Context, v: String) = p(c).edit().putString("theme", v).apply()
+    fun setBlocsAnim(c: Context, v: String) = p(c).edit().putString("blocsAnim", v).apply()
+    fun setImageUri(c: Context, v: String?) = p(c).edit().putString("imageUri", v).apply()
+    fun setLastTheme(c: Context, v: String) = p(c).edit().putString("lastTheme", v).apply()
+}

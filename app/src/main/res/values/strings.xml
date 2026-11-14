@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Potty Pause</string>
+
+    <!-- Settings screen -->
+    <string name="title_settings">Potty Pause</string>
+    <string name="sec_status">Status</string>
+    <string name="status_reminder">Reminder: %1$s</string>
+    <string name="status_active">on</string>
+    <string name="status_stopped">stopped</string>
+    <string name="status_battery">Battery: %1$s</string>
+    <string name="battery_ok">OK</string>
+    <string name="battery_todo">needs setup</string>
+    <string name="btn_start">Start the reminder</string>
+    <string name="btn_save_restart">Save and restart</string>
+    <string name="btn_stop">Stop the reminder</string>
+    <string name="btn_battery">Fix battery setting</string>
+
+    <string name="sec_screen_time">Screen time</string>
+    <string name="lbl_interval">Minutes of screen time before the reminder</string>
+    <string name="lbl_lock">Block duration (minutes)</string>
+    <string name="sec_message">Message for the child</string>
+    <string name="lbl_child_name">Child\'s first name</string>
+    <string name="help_child_name">Said out loud. Optional.</string>
+    <string name="lbl_message">Message shown</string>
+
+    <string name="sec_appearance">Appearance</string>
+    <string name="lbl_theme">Screen theme</string>
+    <string name="lbl_anim">Blocks animation</string>
+    <string name="btn_pick_image">Choose an image</string>
+    <string name="btn_remove_image">Remove the image</string>
+    <string name="image_chosen">Image: chosen ✔</string>
+    <string name="image_none">Image: none</string>
+    <string name="warn_photo_no_image">The Photo frame theme needs an image. Without one, the Blocks theme is shown.</string>
+
+    <string name="sec_language">Language</string>
+    <string name="lang_phone">Phone language</string>
+    <string name="lang_fr">Français</string>
+    <string name="lang_en">English</string>
+
+    <string name="sec_security">Security</string>
+    <string name="lbl_pin">Parent code (4 digits or more)</string>
+    <string name="protection_status">Anti-uninstall protection: %1$s</string>
+    <string name="on">active</string>
+    <string name="off">inactive</string>
+    <string name="btn_protection_on">Turn on anti-uninstall protection</string>
+    <string name="btn_protection_off">Turn off anti-uninstall protection</string>
+    <string name="admin_explanation">Prevents Potty Pause from being uninstalled without the parent code.</string>
+    <string name="icon_status">App icon: %1$s</string>
+    <string name="icon_visible">visible</string>
+    <string name="icon_hidden">hidden</string>
+    <string name="btn_icon_hide">Hide the icon</string>
+    <string name="btn_icon_show">Show the icon</string>
+    <string name="help_icon">If hidden: reopen the app from its notification.</string>
+    <string name="btn_check_update">Check for updates</string>
+    <string name="version_fmt">Version %1$s</string>
+
+    <string name="err_minutes">Enter at least 1 minute</string>
+    <string name="err_pin">The code needs 4 digits or more</string>
+    <string name="toast_allow_overlay">Allow \"Display over other apps\", then come back</string>
+    <string name="toast_start_first">Start the reminder first: a hidden icon is reopened from the notification</string>
+    <string name="toast_image_fail">Could not keep this image</string>
+    <string name="toast_no_picker">No app available to choose an image</string>
+
+    <!-- PIN dialog -->
+    <string name="pin_hint">Parent code</string>
+    <string name="pin_title">Settings for parents only</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Themes -->
+    <string name="theme_blocs">Blocks</string>
+    <string name="theme_geant">Giant character</string>
+    <string name="theme_bd">Comic strip</string>
+    <string name="theme_sablier">Big hourglass</string>
+    <string name="theme_feu">Traffic light</string>
+    <string name="theme_nuit">Quiet night</string>
+    <string name="theme_ballon">Growing balloon</string>
+    <string name="theme_carte">Treasure map</string>
+    <string name="theme_porte">Opening door</string>
+    <string name="theme_bouton">Big button</string>
+    <string name="theme_aqua">Aquarium</string>
+    <string name="theme_dino">Dancing dino</string>
+    <string name="theme_fusee">Toilet rocket</string>
+    <string name="theme_train">Little train</string>
+    <string name="theme_goutte">Splash the drop</string>
+    <string name="theme_photo">Photo frame (my image)</string>
+    <string name="theme_hasard">Random</string>
+    <string name="anim_hasard">Random</string>
+    <string name="anim_0">The pee dance</string>
+    <string name="anim_1">The race</string>
+    <string name="anim_2">The minecart</string>
+    <string name="anim_3">The parkour</string>
+    <string name="anim_4">The miner</string>
+    <string name="anim_5">The portal</string>
+
+    <!-- Spoken phrases (TTS) -->
+    <string name="say_geant">Oh my, I really need to pee! What about you? Come on, let\'s go!</string>
+    <string name="say_bd">He needs to go… he runs… he made it! Now it\'s your turn!</string>
+    <string name="say_sablier">While the sand is falling, go pee. I\'ll wait for you!</string>
+    <string name="say_feu">The light is red, it\'s potty time! When it turns green, you can play again.</string>
+    <string name="say_nuit">The moon will soon go to sleep. A little pee before bedtime?</string>
+    <string name="say_ballon">The balloon is getting bigger and bigger… Go pee before it goes pop!</string>
+    <string name="say_carte">Follow the treasure path all the way to the toilet!</string>
+    <string name="say_porte">Knock knock! The toilet is waiting for you. Come on in!</string>
+    <string name="say_bouton">It\'s potty time!</string>
+    <string name="say_aqua">The fish are resting. You go pee, then come back to see them!</string>
+    <string name="say_dino">Uh oh, the little dino really needs to go! Run to the toilet with him!</string>
+    <string name="say_fusee">Three, two, one… blast off! Quick, go pee, the rocket is waiting for you!</string>
+    <string name="say_train">Choo choo! The little train is going to the toilet station. Hop on with him!</string>
+    <string name="say_goutte">Splash! The little drop went into the toilet. Now it\'s your turn!</string>
+    <string name="say_photo">Look, it\'s your picture! It\'s time to go pee.</string>
+    <string name="say_blocs_name">%1$s, it\'s time to go pee. </string>
+    <string name="say_blocs_noname">Hey! It\'s time to go pee. </string>
+    <string name="say_blocs_who">%1$s really needs to go too! </string>
+    <string name="say_blocs_end">Go to the toilet quickly!</string>
+    <string-array name="blocs_who">
+        <item></item>
+        <item>The little green monster</item>
+        <item>The baby panda</item>
+        <item>The puppy</item>
+        <item>The little pig</item>
+        <item>The little sheep</item>
+        <item>The little cow</item>
+        <item>The chick</item>
+        <item>The little fox</item>
+        <item>The axolotl</item>
+        <item>The bee</item>
+        <item>The frog</item>
+        <item>The cat</item>
+        <item>The little jelly cube</item>
+        <item>The villager</item>
+        <item>The little robot</item>
+    </string-array>
+
+    <!-- Overlay -->
+    <string name="default_message">Go pee 🚽\nYour body says thank you!</string>
+    <string name="parent">Parent</string>
+    <string name="btn_skip">Unlock without reward</string>
+    <string name="btn_reward">⭐ They went! (reward)</string>
+    <string name="retry_in">Try again in %1$d s</string>
+    <string name="wrong_code">Wrong code</string>
+    <string name="bravo">Well done!</string>
+    <string name="bravo_name">Well done %1$s!</string>
+    <string name="chest_open">\nThe chest is open!</string>
+    <string name="plus_diamond">\n+1 diamond</string>
+    <string name="say_chest">The treasure chest is open!</string>
+    <string name="say_diamond">You won a diamond!</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel">Potty reminder</string>
+    <string name="notif_active">Potty reminder is on</string>
+    <string name="notif_stopped">Potty Pause stopped: display permission removed</string>
+
+    <!-- Updater -->
+    <string name="upd_up_to_date">Already up to date</string>
+    <string name="upd_failed">Update failed (internet?)</string>
+    <string name="upd_new_version">New version (v%1$d)</string>
+    <string name="upd_ask">Download and install?</string>
+    <string name="upd_later">Later</string>
+    <string name="upd_allow_installs">Allow installs from this app, then try again</string>
+    <string name="upd_downloading">Downloading…</string>
+    <string name="upd_download_failed">Download failed</string>
+</resources>

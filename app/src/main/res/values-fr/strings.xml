@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pause Pipi</string>
+
+    <!-- Settings screen -->
+    <string name="title_settings">Pause Pipi</string>
+    <string name="sec_status">État</string>
+    <string name="status_reminder">Rappel : %1$s</string>
+    <string name="status_active">actif</string>
+    <string name="status_stopped">arrêté</string>
+    <string name="status_battery">Batterie : %1$s</string>
+    <string name="battery_ok">OK</string>
+    <string name="battery_todo">à régler</string>
+    <string name="btn_start">Démarrer le rappel</string>
+    <string name="btn_save_restart">Enregistrer et redémarrer</string>
+    <string name="btn_stop">Arrêter le rappel</string>
+    <string name="btn_battery">Régler la batterie</string>
+
+    <string name="sec_screen_time">Temps d\'écran</string>
+    <string name="lbl_interval">Minutes d\'écran avant le rappel</string>
+    <string name="lbl_lock">Durée du blocage (minutes)</string>
+    <string name="sec_message">Message pour l\'enfant</string>
+    <string name="lbl_child_name">Prénom de l\'enfant</string>
+    <string name="help_child_name">Dit à voix haute. Facultatif.</string>
+    <string name="lbl_message">Message affiché</string>
+
+    <string name="sec_appearance">Apparence</string>
+    <string name="lbl_theme">Thème de l\'écran</string>
+    <string name="lbl_anim">Animation Blocs</string>
+    <string name="btn_pick_image">Choisir une image</string>
+    <string name="btn_remove_image">Retirer l\'image</string>
+    <string name="image_chosen">Image : choisie ✔</string>
+    <string name="image_none">Image : aucune</string>
+    <string name="warn_photo_no_image">Le thème Cadre photo a besoin d\'une image. Sans image, le thème Blocs est affiché.</string>
+
+    <string name="sec_language">Langue</string>
+    <string name="lang_phone">Langue du téléphone</string>
+    <string name="lang_fr">Français</string>
+    <string name="lang_en">English</string>
+
+    <string name="sec_security">Sécurité</string>
+    <string name="lbl_pin">Code parent (4 chiffres ou plus)</string>
+    <string name="protection_status">Protection anti-suppression : %1$s</string>
+    <string name="on">active</string>
+    <string name="off">inactive</string>
+    <string name="btn_protection_on">Activer la protection anti-suppression</string>
+    <string name="btn_protection_off">Retirer la protection anti-suppression</string>
+    <string name="admin_explanation">Empêche la suppression de Pause Pipi sans le code parent.</string>
+    <string name="icon_status">Icône : %1$s</string>
+    <string name="icon_visible">visible</string>
+    <string name="icon_hidden">cachée</string>
+    <string name="btn_icon_hide">Cacher l\'icône</string>
+    <string name="btn_icon_show">Réafficher l\'icône</string>
+    <string name="help_icon">Si cachée : rouvrir l\'appli par la notification.</string>
+    <string name="btn_check_update">Chercher une mise à jour</string>
+    <string name="version_fmt">Version %1$s</string>
+
+    <string name="err_minutes">Indique au moins 1 minute</string>
+    <string name="err_pin">Le code doit avoir 4 chiffres ou plus</string>
+    <string name="toast_allow_overlay">Autorise « Afficher par-dessus les autres applis », puis reviens</string>
+    <string name="toast_start_first">Démarre d\'abord le rappel : l\'icône cachée se rouvre par la notification</string>
+    <string name="toast_image_fail">Impossible de garder cette image</string>
+    <string name="toast_no_picker">Aucune application pour choisir une image</string>
+
+    <!-- PIN dialog -->
+    <string name="pin_hint">Code parent</string>
+    <string name="pin_title">Réglages réservés aux parents</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Annuler</string>
+
+    <!-- Themes -->
+    <string name="theme_blocs">Blocs</string>
+    <string name="theme_geant">Personnage géant</string>
+    <string name="theme_bd">Bande dessinée</string>
+    <string name="theme_sablier">Grand sablier</string>
+    <string name="theme_feu">Feu tricolore</string>
+    <string name="theme_nuit">Nuit calme</string>
+    <string name="theme_ballon">Ballon qui gonfle</string>
+    <string name="theme_carte">Carte au trésor</string>
+    <string name="theme_porte">Porte qui s\'ouvre</string>
+    <string name="theme_bouton">Gros bouton</string>
+    <string name="theme_aqua">Aquarium</string>
+    <string name="theme_dino">Dino qui danse</string>
+    <string name="theme_fusee">Fusée-toilette</string>
+    <string name="theme_train">Petit train</string>
+    <string name="theme_goutte">Plouf la goutte</string>
+    <string name="theme_photo">Cadre photo (mon image)</string>
+    <string name="theme_hasard">Au hasard</string>
+    <string name="anim_hasard">Au hasard</string>
+    <string name="anim_0">La danse du pipi</string>
+    <string name="anim_1">La course</string>
+    <string name="anim_2">Le wagonnet</string>
+    <string name="anim_3">Le parkour</string>
+    <string name="anim_4">Le mineur</string>
+    <string name="anim_5">Le portail</string>
+
+    <!-- Spoken phrases (TTS) -->
+    <string name="say_geant">Oh là là, j\'ai trop envie de faire pipi ! Et toi ? Allez, on y va !</string>
+    <string name="say_bd">Il a envie… il court… il a réussi ! À toi de faire pareil !</string>
+    <string name="say_sablier">Pendant que le sable coule, va faire pipi. Je t\'attends !</string>
+    <string name="say_feu">Le feu est rouge, c\'est l\'heure du pipi ! Quand il sera vert, tu pourras rejouer.</string>
+    <string name="say_nuit">La lune va bientôt dormir. Un petit pipi avant le dodo ?</string>
+    <string name="say_ballon">Le ballon gonfle, gonfle… Va faire pipi avant qu\'il fasse pop !</string>
+    <string name="say_carte">Suis le chemin du trésor jusqu\'aux toilettes !</string>
+    <string name="say_porte">Toc toc ! Les toilettes t\'attendent. Entre vite !</string>
+    <string name="say_bouton">C\'est l\'heure du pipi !</string>
+    <string name="say_aqua">Les poissons se reposent. Toi, va faire pipi, puis reviens les voir !</string>
+    <string name="say_dino">Oh oh, le petit dino a très envie ! Cours vite aux toilettes avec lui !</string>
+    <string name="say_fusee">Trois, deux, un… décollage ! Va vite faire pipi, la fusée t\'attend !</string>
+    <string name="say_train">Tchou tchou ! Le petit train va à la gare des toilettes. Monte avec lui !</string>
+    <string name="say_goutte">Plouf ! La petite goutte est allée dans les toilettes. À toi maintenant !</string>
+    <string name="say_photo">Regarde, c\'est ton dessin ! C\'est l\'heure d\'aller faire pipi.</string>
+    <string name="say_blocs_name">%1$s, c\'est l\'heure d\'aller faire pipi. </string>
+    <string name="say_blocs_noname">Hé ! C\'est l\'heure d\'aller faire pipi. </string>
+    <string name="say_blocs_who">%1$s a très envie aussi ! </string>
+    <string name="say_blocs_end">Va vite aux toilettes !</string>
+    <string-array name="blocs_who">
+        <item></item>
+        <item>Le petit monstre vert</item>
+        <item>Le bébé panda</item>
+        <item>Le chiot</item>
+        <item>Le petit cochon</item>
+        <item>Le petit mouton</item>
+        <item>La petite vache</item>
+        <item>Le poussin</item>
+        <item>Le petit renard</item>
+        <item>L\'axolotl</item>
+        <item>L\'abeille</item>
+        <item>La grenouille</item>
+        <item>Le chat</item>
+        <item>Le petit cube de gelée</item>
+        <item>Le villageois</item>
+        <item>Le petit robot</item>
+    </string-array>
+
+    <!-- Overlay -->
+    <string name="default_message">Va faire pipi 🚽\nTon corps te dit merci !</string>
+    <string name="parent">Parent</string>
+    <string name="btn_skip">Débloquer sans récompense</string>
+    <string name="btn_reward">⭐ Il y est allé ! (récompense)</string>
+    <string name="retry_in">Réessaie dans %1$d s</string>
+    <string name="wrong_code">Code incorrect</string>
+    <string name="bravo">Bravo !</string>
+    <string name="bravo_name">Bravo %1$s !</string>
+    <string name="chest_open">\nLe coffre est ouvert !</string>
+    <string name="plus_diamond">\n+1 diamant</string>
+    <string name="say_chest">Le coffre au trésor est ouvert !</string>
+    <string name="say_diamond">Tu as gagné un diamant !</string>
+
+    <!-- Notifications -->
+    <string name="notif_channel">Rappel pipi</string>
+    <string name="notif_active">Rappel pipi actif</string>
+    <string name="notif_stopped">Pause Pipi arrêté : permission d\'affichage retirée</string>
+
+    <!-- Updater -->
+    <string name="upd_up_to_date">Déjà à jour</string>
+    <string name="upd_failed">Mise à jour impossible (internet ?)</string>
+    <string name="upd_new_version">Nouvelle version (v%1$d)</string>
+    <string name="upd_ask">Télécharger et installer ?</string>
+    <string name="upd_later">Plus tard</string>
+    <string name="upd_allow_installs">Autorise l\'installation depuis cette appli, puis réessaie</string>
+    <string name="upd_downloading">Téléchargement…</string>
+    <string name="upd_download_failed">Téléchargement échoué</string>
+</resources>
