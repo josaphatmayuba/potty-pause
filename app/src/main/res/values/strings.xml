@@ -17,6 +17,11 @@
     <string name="btn_battery">Fix battery setting</string>
 
     <string name="sec_screen_time">Screen time</string>
+    <string name="chk_limit_hours">Limit to the chosen hours</string>
+    <string name="lbl_from">From</string>
+    <string name="lbl_to">To</string>
+    <string name="help_hours">Outside these hours no reminder is shown and screen time is not counted. If the end is before the start, the range crosses midnight.</string>
+    <string name="status_outside_hours">Outside active hours</string>
     <string name="lbl_interval">Minutes of screen time before the reminder</string>
     <string name="lbl_lock">Block duration (minutes)</string>
     <string name="sec_message">Message for the child</string>
@@ -161,4 +166,7 @@
     <string name="upd_allow_installs">Allow installs from this app, then try again</string>
     <string name="upd_downloading">Downloading…</string>
     <string name="upd_download_failed">Download failed</string>
+    <string name="upd_channel">Updates</string>
+    <string name="upd_notif_title">New version available</string>
+    <string name="upd_notif_text">Tap to update the app</string>
 </resources>

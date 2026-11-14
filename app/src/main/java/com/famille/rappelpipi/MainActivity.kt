@@ -161,7 +161,10 @@ class MainActivity : Activity() {
             val battOk = pm.isIgnoringBatteryOptimizations(packageName)
             val on = Prefs.enabled(this)
             val green = Color.parseColor("#2E7D32"); val orange = Color.parseColor("#E65100")
-            statusRem.text = getString(R.string.status_reminder, getString(if (on) R.string.status_active else R.string.status_stopped))
+            val outside = on && !Prefs.inActiveHours(this)
+            statusRem.text = getString(R.string.status_reminder,
+                if (outside) getString(R.string.status_outside_hours)
+                else getString(if (on) R.string.status_active else R.string.status_stopped))
             statusRem.setTextColor(if (on) green else orange)
             statusBatt.text = getString(R.string.status_battery, getString(if (battOk) R.string.battery_ok else R.string.battery_todo))
             statusBatt.setTextColor(if (battOk) green else orange)
@@ -174,6 +177,32 @@ class MainActivity : Activity() {
         col.addView(section(getString(R.string.sec_screen_time)))
         col.addView(label(getString(R.string.lbl_interval))); col.addView(interval)
         col.addView(label(getString(R.string.lbl_lock))); col.addView(lock)
+        var fromMin = Prefs.activeFrom(this)
+        var toMin = Prefs.activeTo(this)
+        fun hm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+        val limitChk = android.widget.CheckBox(this).apply {
+            text = getString(R.string.chk_limit_hours)
+            isChecked = Prefs.activeLimited(this@MainActivity)
+            minHeight = dp(48)
+        }
+        val fromBtn = btn("")
+        val toBtn = btn("")
+        fun refreshHours() {
+            fromBtn.text = getString(R.string.lbl_from) + " " + hm(fromMin)
+            toBtn.text = getString(R.string.lbl_to) + " " + hm(toMin)
+            fromBtn.isEnabled = limitChk.isChecked
+            toBtn.isEnabled = limitChk.isChecked
+        }
+        fromBtn.setOnClickListener {
+            android.app.TimePickerDialog(this, { _, h, m -> fromMin = h * 60 + m; refreshHours() }, fromMin / 60, fromMin % 60, true).show()
+        }
+        toBtn.setOnClickListener {
+            android.app.TimePickerDialog(this, { _, h, m -> toMin = h * 60 + m; refreshHours() }, toMin / 60, toMin % 60, true).show()
+        }
+        limitChk.setOnCheckedChangeListener { _, _ -> refreshHours() }
+        refreshHours()
+        col.addView(limitChk); col.addView(fromBtn); col.addView(toBtn)
+        col.addView(help(getString(R.string.help_hours)))
 
         // 3. Message pour l'enfant
         col.addView(section(getString(R.string.sec_message)))
@@ -328,6 +357,7 @@ class MainActivity : Activity() {
             if (bad != null) { bad.requestFocus(); return@setOnClickListener }
             val msgText = if (Prefs.isDefaultMessage(this@MainActivity, message.text.toString())) "" else message.text.toString()
             Prefs.save(this@MainActivity, i, l, msgText, p, childName.text.toString().trim())
+            Prefs.setActive(this@MainActivity, fromMin, toMin, limitChk.isChecked)
             Prefs.setTheme(this@MainActivity, themeIds[themeSpin.selectedItemPosition.coerceIn(0, themeIds.size - 1)])
             Prefs.setBlocsAnim(this@MainActivity, animIds[animSpin.selectedItemPosition.coerceIn(0, animIds.size - 1)])
             if (!Settings.canDrawOverlays(this@MainActivity)) {

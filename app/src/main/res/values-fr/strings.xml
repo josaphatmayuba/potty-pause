@@ -17,6 +17,11 @@
     <string name="btn_battery">Régler la batterie</string>
 
     <string name="sec_screen_time">Temps d\'écran</string>
+    <string name="chk_limit_hours">Limiter aux heures choisies</string>
+    <string name="lbl_from">De</string>
+    <string name="lbl_to">À</string>
+    <string name="help_hours">Hors de ces heures, aucun rappel et le temps d\'écran n\'est pas compté. Si la fin est avant le début, la plage traverse minuit.</string>
+    <string name="status_outside_hours">Hors des heures</string>
     <string name="lbl_interval">Minutes d\'écran avant le rappel</string>
     <string name="lbl_lock">Durée du blocage (minutes)</string>
     <string name="sec_message">Message pour l\'enfant</string>
@@ -161,4 +166,7 @@
     <string name="upd_allow_installs">Autorise l\'installation depuis cette appli, puis réessaie</string>
     <string name="upd_downloading">Téléchargement…</string>
     <string name="upd_download_failed">Téléchargement échoué</string>
+    <string name="upd_channel">Mises à jour</string>
+    <string name="upd_notif_title">Nouvelle version disponible</string>
+    <string name="upd_notif_text">Touchez pour mettre à jour l\'application</string>
 </resources>

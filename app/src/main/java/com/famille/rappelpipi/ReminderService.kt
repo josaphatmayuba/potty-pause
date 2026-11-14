@@ -137,6 +137,10 @@ class ReminderService : Service() {
                     scene?.state?.progress = (1f - left.toFloat() / lockTotal).coerceIn(0f, 1f)
                     if (now - lastSpoken >= 40_000L) speak()
                 }
+            } else if (!Prefs.inActiveHours(this@ReminderService)) {
+                // Hors des heures choisies : rien ne compte ; au retour dans la plage on repart de zero.
+                usedMs = 0
+                onSince = now
             } else if (screenOn) {
                 // Le temps passe sur l'ecran de verrouillage n'est pas compte.
                 if (keyguard.isKeyguardLocked) {
@@ -178,7 +182,49 @@ class ReminderService : Service() {
         if (remaining > 0 && Settings.canDrawOverlays(this)) showOverlay(onSince, remaining)
         else Prefs.setLockedUntilWall(this, 0L)
         handler.post(tick)
+        handler.post(updateCheck)
     }
+
+    // Verif auto des mises a jour : au demarrage puis au plus 1 fois / 24 h ; echecs silencieux.
+    private val updateCheck = object : Runnable {
+        override fun run() {
+            val now = System.currentTimeMillis()
+            val last = Prefs.lastUpdateCheck(this@ReminderService)
+            if (now - last >= DAY_MS || last > now) {
+                Prefs.setLastUpdateCheck(this@ReminderService, now)
+                Thread {
+                    val r = Updater.fetchLatest() ?: return@Thread
+                    val (remote, url) = r
+                    if (url == null) return@Thread
+                    if (remote <= Updater.currentCode(this@ReminderService)) return@Thread
+                    handler.post { notifyUpdate(remote) }
+                }.start()
+            }
+            handler.postDelayed(this, 60L * 60_000L)
+        }
+    }
+
+    private fun notifyUpdate(ver: Long) {
+        val now = System.currentTimeMillis()
+        val at = Prefs.notifiedUpdateAt(this)
+        if (Prefs.notifiedUpdate(this) == ver && now - at in 0 until DAY_MS) return
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel("update", getString(R.string.upd_channel), NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        nm.notify(3, Notification.Builder(this, "update")
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentTitle(getString(R.string.upd_notif_title))
+            .setContentText(getString(R.string.upd_notif_text))
+            .setAutoCancel(true)
+            .setContentIntent(android.app.PendingIntent.getActivity(
+                this, 1, Intent(this, MainActivity::class.java),
+                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT))
+            .build())
+        Prefs.setNotifiedUpdate(this, ver, now)
+    }
+
+    private companion object { const val DAY_MS = 24L * 60 * 60 * 1000 }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val nm = getSystemService(NotificationManager::class.java)
@@ -203,6 +249,7 @@ class ReminderService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacks(tick)
+        handler.removeCallbacks(updateCheck)
         celebrateEnd?.let { handler.removeCallbacks(it) }
         runCatching { unregisterReceiver(screenReceiver) }
         tts?.stop(); tts?.shutdown(); tts = null

@@ -78,6 +78,26 @@ object Prefs {
         return n
     }
 
+    // Heures de fonctionnement (minutes depuis minuit, heure locale).
+    fun activeFrom(c: Context) = p(c).getInt("activeFrom", 7 * 60)
+    fun activeTo(c: Context) = p(c).getInt("activeTo", 20 * 60)
+    fun activeLimited(c: Context) = p(c).getBoolean("activeLimited", true)
+    fun setActive(c: Context, from: Int, to: Int, limited: Boolean) =
+        p(c).edit().putInt("activeFrom", from).putInt("activeTo", to).putBoolean("activeLimited", limited).apply()
+
+    // True si l'heure actuelle est dans la plage (plage qui traverse minuit si debut > fin ; debut == fin = toujours).
+    fun inActiveHours(c: Context): Boolean {
+        if (!activeLimited(c)) return true
+        val cal = java.util.Calendar.getInstance()
+        val m = cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
+        val f = activeFrom(c); val t = activeTo(c)
+        return when {
+            f == t -> true
+            f < t -> m >= f && m < t
+            else -> m >= f || m < t
+        }
+    }
+
     fun setEnabled(c: Context, value: Boolean) = p(c).edit().putBoolean("enabled", value).apply()
 
     // Theme de l'ecran de rappel ("blocs", une idee, ou "hasard").
@@ -88,6 +108,14 @@ object Prefs {
     fun imageUri(c: Context): String? = p(c).getString("imageUri", null)
     // Dernier theme affiche (pour ne pas tirer deux fois le meme au hasard).
     fun lastTheme(c: Context) = p(c).getString("lastTheme", "")!!
+
+    // Verification auto des mises a jour : derniere verif, derniere version notifiee et quand.
+    fun lastUpdateCheck(c: Context) = p(c).getLong("updCheck", 0L)
+    fun setLastUpdateCheck(c: Context, v: Long) = p(c).edit().putLong("updCheck", v).apply()
+    fun notifiedUpdate(c: Context) = p(c).getLong("updNotifiedVer", 0L)
+    fun notifiedUpdateAt(c: Context) = p(c).getLong("updNotifiedAt", 0L)
+    fun setNotifiedUpdate(c: Context, ver: Long, at: Long) =
+        p(c).edit().putLong("updNotifiedVer", ver).putLong("updNotifiedAt", at).apply()
 
     fun setTheme(c: Context, v: String) = p(c).edit().putString("theme", v).apply()
     fun setBlocsAnim(c: Context, v: String) = p(c).edit().putString("blocsAnim", v).apply()

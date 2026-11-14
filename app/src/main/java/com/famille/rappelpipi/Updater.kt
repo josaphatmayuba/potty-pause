@@ -18,24 +18,32 @@ import java.net.URL
 object Updater {
     private const val API = "https://api.github.com/repos/josaphatmayuba/potty-pause/releases/latest"
 
-    private fun currentCode(a: Activity): Long =
+    fun currentCode(a: android.content.Context): Long =
         a.packageManager.getPackageInfo(a.packageName, 0).longVersionCode
+
+    /** Reseau bloquant (appeler hors thread principal) : (version distante, url APK) ou null si echec. */
+    fun fetchLatest(): Pair<Long, String?>? = try {
+        val c = URL(API).openConnection() as HttpURLConnection
+        c.connectTimeout = 8000; c.readTimeout = 8000
+        c.setRequestProperty("Accept", "application/vnd.github+json")
+        val json = JSONObject(c.inputStream.bufferedReader().readText())
+        val remote = json.getString("tag_name").trim().removePrefix("v").toLongOrNull() ?: 0L
+        val assets = json.getJSONArray("assets")
+        var url: String? = null
+        for (i in 0 until assets.length()) {
+            val o = assets.getJSONObject(i)
+            if (o.getString("name").endsWith(".apk")) url = o.getString("browser_download_url")
+        }
+        Pair(remote, url)
+    } catch (e: Exception) {
+        null
+    }
 
     /** manual = true : affiche aussi "deja a jour" / les erreurs. */
     fun check(a: Activity, manual: Boolean) {
         Thread {
             try {
-                val c = URL(API).openConnection() as HttpURLConnection
-                c.connectTimeout = 8000; c.readTimeout = 8000
-                c.setRequestProperty("Accept", "application/vnd.github+json")
-                val json = JSONObject(c.inputStream.bufferedReader().readText())
-                val remote = json.getString("tag_name").trim().removePrefix("v").toLongOrNull() ?: 0L
-                val assets = json.getJSONArray("assets")
-                var url: String? = null
-                for (i in 0 until assets.length()) {
-                    val o = assets.getJSONObject(i)
-                    if (o.getString("name").endsWith(".apk")) url = o.getString("browser_download_url")
-                }
+                val (remote, url) = fetchLatest() ?: throw java.io.IOException("fetch")
                 a.runOnUiThread {
                     if (url != null && remote > currentCode(a)) askInstall(a, remote, url)
                     else if (manual) toast(a, a.getString(R.string.upd_up_to_date))
