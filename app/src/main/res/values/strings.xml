@@ -98,6 +98,7 @@
     <string name="anim_3">The parkour</string>
     <string name="anim_4">The miner</string>
     <string name="anim_5">The portal</string>
+    <string name="anim_6">The bathroom</string>
     <string name="lbl_character">Character</string>
     <string name="char_random_mc">Random: Minecraft</string>
     <string name="char_random_sp">Random: Sprunki</string>

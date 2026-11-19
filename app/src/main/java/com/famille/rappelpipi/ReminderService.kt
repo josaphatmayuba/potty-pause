@@ -454,7 +454,7 @@ class ReminderService : Service() {
                 currentWho = resources.getStringArray(R.array.blocs_who)[sc.state.kind]
             }
             val a = Prefs.blocsAnim(this)
-            sc.state.variant = if (a == "hasard") Random.nextInt(6) else (a.toIntOrNull() ?: 0).coerceIn(0, 5)
+            sc.state.variant = if (a == "hasard") Random.nextInt(7) else (a.toIntOrNull() ?: 0).coerceIn(0, 6)
         }
         return sc
     }

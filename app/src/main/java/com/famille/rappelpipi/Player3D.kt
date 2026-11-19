@@ -30,6 +30,10 @@ object Player3D {
     const val WALK1 = 3
     const val JUMP = 4
     const val HAPPY = 5
+    const val PEE = 6
+    const val WASH = 7
+    const val SHAKE = 8
+    const val FLUSH = 9
 
     private const val HEAD = 0
     private const val BODY = 1
@@ -188,6 +192,23 @@ object Player3D {
                 prz[RARM] = -2.55f + w * 0.25f; prz[LARM] = 2.55f - w * 0.25f
                 prz[RLEG] = -0.12f; prz[LLEG] = 0.12f
                 prz[HEAD] = w * 0.08f; prx[HEAD] = -0.1f
+            }
+            PEE -> {
+                prx[HEAD] = 0.35f; prx[BODY] = 0.04f
+                prx[RARM] = -0.55f; prx[LARM] = -0.55f; prz[RARM] = 0.28f; prz[LARM] = -0.28f
+            }
+            WASH -> {
+                val w = sin(t * 15f)
+                prx[HEAD] = 0.3f; prx[BODY] = 0.06f
+                prx[RARM] = -1.15f + w * 0.12f; prx[LARM] = -1.15f - w * 0.12f; prz[RARM] = 0.4f; prz[LARM] = -0.4f
+            }
+            SHAKE -> {
+                val w = sin(t * 22f)
+                prx[RARM] = -0.6f + w * 0.5f; prx[LARM] = -0.6f - w * 0.5f; prz[RARM] = 0.15f; prz[LARM] = -0.15f
+                pry[HEAD] = sin(t * 3f) * 0.2f
+            }
+            FLUSH -> {
+                prx[RARM] = -1.5f; prz[LARM] = 0.06f; prx[HEAD] = 0.1f
             }
             else -> {
                 val b = sin(t * 1.6f) * 0.03f

@@ -36,7 +36,7 @@ class MainActivity : Activity() {
         "blocs", "geant", "bd", "sablier", "feu", "nuit", "ballon", "carte", "porte",
         "bouton", "aqua", "dino", "fusee", "train", "goutte", "photo", "hasard"
     )
-    private val animIds = arrayOf("hasard", "0", "1", "2", "3", "4", "5")
+    private val animIds = arrayOf("hasard", "0", "1", "2", "3", "4", "5", "6")
 
     private fun themeName(id: String): String {
         val rid = resources.getIdentifier("theme_$id", "string", packageName)

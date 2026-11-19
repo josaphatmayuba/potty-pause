@@ -49,6 +49,10 @@ object BlocsAnim {
     private const val WALK1 = 3
     private const val JUMP = 4
     private const val HAPPY = 5
+    private const val PEE = 6
+    private const val WASH = 7
+    private const val SHAKE = 8
+    private const val FLUSH = 9
 
     private val p = Paint().apply { isAntiAlias = false; isFilterBitmap = false; style = Paint.Style.FILL }
     private val bp = Paint().apply { isAntiAlias = false; isFilterBitmap = false }
@@ -134,6 +138,7 @@ object BlocsAnim {
             3 -> sParkour(g, t, s)
             4 -> sMine(g, t, s)
             5 -> sPortail(g, t, s)
+            6 -> sBain(g, t, s)
             else -> sDanse(g, t, s)
         }
         ga = 1f
@@ -989,5 +994,136 @@ object BlocsAnim {
             hero(g, 740f, 456f - (if (tc > 5.8f) abs(sin(tc * 6f)) * 10f else 0f), u, if (tc > 5.3f) HAPPY else STAND)
         }
         if (cel && tc > 5.8f) bravo(g, tc - 5.8f)
+    }
+
+    /* 6. La salle de bain : il entre, fait pipi, tire la chasse, se lave les mains, puis sort par la porte */
+    private const val BL = 16.4f
+
+    private fun bainRoom(g: Canvas, gy: Float) {
+        rect(g, 0f, 0f, W, gy, c("#E6F4FB"))
+        for (i in 0 until 16) rect(g, i * 60f, gy - 220f, 3f, 220f, c("#C5E4F2"))
+        for (j in 0 until 4) rect(g, 0f, gy - 220f + j * 55f, W, 3f, c("#C5E4F2"))
+        rect(g, 0f, gy - 230f, W, 10f, c("#9FD3EA"))
+        rect(g, 0f, gy - 14f, W, 14f, c("#B6C7D6"))
+        for (r in 0 until 3) for (i in 0 until 20) rect(g, i * 48f, gy + r * 48f, 48f, 48f, c(if ((i + r) % 2 == 0) "#F1F5F9" else "#CBD5E1"))
+        rect(g, 300f, gy - 360f, 150f, 120f, c("#7C8DA3")); rect(g, 308f, gy - 352f, 134f, 104f, c("#9ADBF5"))
+        rect(g, 372f, gy - 352f, 6f, 104f, c("#7C8DA3")); rect(g, 308f, gy - 302f, 134f, 6f, c("#7C8DA3"))
+        rect(g, 770f, gy - 350f, 160f, 130f, c("#7C8DA3")); rect(g, 778f, gy - 342f, 144f, 114f, c("#CFEFFF"))
+        rect(g, 800f, gy - 330f, 10f, 40f, Color.WHITE); rect(g, 818f, gy - 330f, 5f, 24f, Color.WHITE)
+    }
+
+    private fun doorBack(g: Canvas, gy: Float) {
+        rect(g, 20f, gy - 310f, 140f, 310f, c("#6E4421"))
+        rect(g, 34f, gy - 296f, 112f, 296f, c("#9ADBF5")); rect(g, 34f, gy - 120f, 112f, 120f, c("#9AD98A"))
+        rect(g, 60f, gy - 190f, 40f, 40f, c("#FDE047"))
+    }
+
+    private fun doorLeaf(g: Canvas, gy: Float, open: Float) {
+        val dw = rnd(112f * (1f - open * 0.85f))
+        if (dw < 4f) return
+        rect(g, 34f, gy - 296f, dw, 296f, c("#9A6A36"))
+        for (k in 1 until 4) rect(g, 34f, gy - 296f + k * 74f, dw, 4f, c("#6E4421"))
+        rect(g, 34f + dw - 5f, gy - 296f, 5f, 296f, c("#6E4421"))
+        if (dw > 60f) rect(g, 34f + dw - 20f, gy - 150f, 8f, 8f, c("#FACC15"))
+    }
+
+    private fun sBain(g: Canvas, t: Float, st: SceneState) {
+        val cel = st.celebrate
+        val tc = if (cel) 13.3f + st.celebrateT else t % BL
+        val gy = 456f
+        val xp = 520f; val xs = 745f
+        val oEnter = if (tc < 0.4f) tc / 0.4f else if (tc < 1.1f) 1f else if (tc < 1.5f) 1f - (tc - 1.1f) / 0.4f else 0f
+        val oExit = if (tc < 14.2f) 0f else if (tc < 14.6f) (tc - 14.2f) / 0.4f else if (tc < 15.9f) 1f else if (tc < 16.3f) 1f - (tc - 15.9f) / 0.4f else 0f
+        val open = if (cel && tc >= 15.9f) 1f else max(oEnter, oExit)
+        bainRoom(g, gy)
+        doorBack(g, gy)
+        // toilette de profil : bol vers la gauche, reservoir contre le mur
+        val flushing = tc >= 6.9f && tc <= 7.8f
+        rect(g, 600f, gy - 196f, 76f, 12f, c("#5B6478")); rect(g, 600f, gy - 190f, 70f, 142f, c("#5B6478"))
+        rect(g, 604f, gy - 184f, 62f, 132f, c("#F8FAFC")); rect(g, 656f, gy - 184f, 10f, 132f, c("#D3DAE6"))
+        rect(g, 590f, gy - 144f + (if (flushing) 5f else 0f), 16f, 9f, c("#FACC15"))
+        rect(g, 540f, gy - 54f, 112f, 12f, c("#5B6478")); rect(g, 543f, gy - 52f, 106f, 7f, c("#F8FAFC"))
+        rect(g, 550f, gy - 42f, 98f, 32f, c("#5B6478")); rect(g, 554f, gy - 42f, 90f, 28f, c("#F8FAFC")); rect(g, 620f, gy - 42f, 24f, 28f, c("#D3DAE6"))
+        rect(g, 575f, gy - 12f, 58f, 12f, c("#5B6478")); rect(g, 579f, gy - 12f, 50f, 10f, c("#E5EAF2"))
+        // lavabo de profil
+        rect(g, 822f, gy - 92f, 48f, 92f, c("#CBD5E1")); rect(g, 824f, gy - 92f, 40f, 92f, c("#E2E8F0"))
+        rect(g, 785f, gy - 106f, 128f, 16f, c("#5B6478")); rect(g, 788f, gy - 104f, 122f, 11f, c("#F8FAFC"))
+        rect(g, 796f, gy - 92f, 108f, 12f, c("#D3DAE6"))
+        rect(g, 884f, gy - 172f, 14f, 68f, c("#94A3B8")); rect(g, 826f, gy - 172f, 72f, 12f, c("#94A3B8")); rect(g, 826f, gy - 172f, 12f, 24f, c("#CBD5E1"))
+        // pipi
+        if (tc >= 3.7f && tc <= 6.7f) {
+            val head = clamp((tc - 3.8f) / 0.3f, 0f, 1f); val tail = clamp((tc - 6.1f) / 0.4f, 0f, 1f)
+            val fl = floor(tc * 12f).toInt()
+            for (i in 0 until 13) {
+                val k = i / 12f
+                if (k > head || k < tail) continue
+                rect(g, 572f + 34f * k, gy - 80f + 26f * k * k, 6f, 8f, c(if ((i + fl) % 2 == 0) "#FDE047" else "#FACC15"))
+            }
+            if (head >= 1f && tail < 1f) {
+                val sp = abs(sin(tc * 16f)) * 8f
+                rect(g, 600f, gy - 56f - sp, 5f, 5f, c("#FDE047")); rect(g, 614f, gy - 58f - sp * 0.8f, 5f, 5f, c("#FDE047"))
+            }
+        }
+        // chasse d'eau : tourbillon dans le bol
+        if (flushing) {
+            for (i in 0 until 6) rect(g, 556f + i * 14f + sin(tc * 14f + i) * 4f, gy - 62f - abs(sin(tc * 10f + i)) * 6f, 8f, 5f, c("#7DD3FC"))
+        }
+        // personnage
+        var cx = xp; var u = 6f; var pose = STAND; var yaw = 1.3f; var show = true; var f = false
+        when {
+            tc < 1.5f -> { val k = ease(tc / 1.5f); cx = lerp(110f, 230f, k); u = lerp(4.2f, 6f, k); pose = walkPose(tc, 8f); yaw = 0.95f }
+            tc < 3.1f -> { cx = lerp(230f, xp, ease((tc - 1.5f) / 1.6f)); pose = walkPose(tc, 8f); yaw = 0.95f }
+            tc < 3.5f -> { yaw = lerp(0.95f, 1.3f, (tc - 3.1f) / 0.4f) }
+            tc < 6.6f -> { pose = PEE }
+            tc < 7.7f -> { pose = FLUSH }
+            tc < 9.2f -> { cx = lerp(xp, xs, ease((tc - 7.7f) / 1.5f)); pose = walkPose(tc, 8f); yaw = 0.95f }
+            tc < 9.5f -> { cx = xs; yaw = 1f }
+            tc < 12.5f -> { cx = xs; pose = WASH; yaw = 1f }
+            tc < 13.3f -> { cx = xs; pose = SHAKE; yaw = 0.8f }
+            tc < 15.6f -> {
+                cx = lerp(xs, 100f, ease((tc - 13.3f) / 2.3f)); pose = walkPose(tc, 8f); yaw = -0.95f; f = true
+                u = lerp(6f, 3.4f, clamp((330f - cx) / 230f, 0f, 1f))
+            }
+            else -> show = false
+        }
+        if (show) {
+            val bob = if (pose == WALK0 || pose == WALK1) abs(sin(tc * 14f)) * 4f else 0f
+            shadow(g, cx, 458f, 90f * u / 6f)
+            hero(g, cx, gy - bob, u, pose, f, yaw)
+        } else if (cel) {
+            hero(g, 150f, gy - abs(sin((tc - 15.6f) * 6f)) * 14f, 5.5f, HAPPY)
+            bravo(g, tc - 15.7f)
+        }
+        doorLeaf(g, gy, open)
+        if (tc >= 1.6f && tc <= 3f) bubble(g, cx + 90f, 150f, "!", 24f, 0.9f + sin(tc * 12f) * 0.03f)
+        if (tc >= 6.0f && tc <= 6.9f) bubble(g, cx + 70f, 140f, "Ouf !", 30f, 1f + sin(tc * 12f) * 0.03f, "#1D4ED8")
+        // lavage des mains
+        if (tc >= 9.5f && tc <= 12.5f) {
+            for (i in 0 until 6) rect(g, 829f, gy - 150f + ((tc * 180f + i * 7f) % 38f), 6f, 12f, c("#7DD3FC"))
+            if (tc >= 9.8f) {
+                val fade = if (tc < 11.6f) 1f else clamp(1f - (tc - 11.6f) / 0.8f, 0f, 1f)
+                ga = fade
+                val gr = clamp((tc - 9.8f) / 0.6f, 0.2f, 1f)
+                for (i in 0 until 7) {
+                    val fs = 12f * gr
+                    rect(g, 806f + (i * 9) % 36 + sin(tc * 9f + i) * 3f, gy - 126f - (i % 3) * 8f, fs, fs, Color.WHITE)
+                }
+                for (i in 0 until 5) {
+                    val k = (tc * 0.7f + i * 0.2f) % 1f
+                    ga = (1f - k) * fade
+                    rect(g, 800f + i * 14f + sin(tc * 5f + i) * 6f, gy - 134f - k * 70f, 8f, 8f, c("#BAE6FD"))
+                }
+                ga = 1f
+            }
+        }
+        if (tc >= 12.5f && tc <= 13.3f) {
+            for (i in 0 until 5) {
+                val k = (tc * 2.5f + i / 5f) % 1f
+                ga = 1f - k
+                rect(g, xs + 60f + k * 50f, gy - 110f - sin(k * PI.toFloat()) * 30f + k * 20f, 6f, 8f, c("#7DD3FC"))
+            }
+            ga = 1f
+        }
+        warm(g)
     }
 }
