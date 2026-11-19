@@ -69,11 +69,11 @@ object Prefs {
     fun lockedUntilWall(c: Context) = p(c).getLong("lockedUntilWall", 0L)
     fun setLockedUntilWall(c: Context, v: Long) = p(c).edit().putLong("lockedUntilWall", v).apply()
 
-    // Personnage au hasard a chaque rappel (0..15), jamais le meme deux fois de suite.
+    // Personnage au hasard a chaque rappel (0..17), jamais le meme deux fois de suite.
     fun nextCharacter(c: Context): Int {
         val last = p(c).getInt("char", -1)
-        var n = kotlin.random.Random.nextInt(16)
-        if (n == last) n = (n + 1 + kotlin.random.Random.nextInt(15)) % 16
+        var n = kotlin.random.Random.nextInt(18)
+        if (n == last) n = (n + 1 + kotlin.random.Random.nextInt(17)) % 18
         p(c).edit().putInt("char", n).apply()
         return n
     }

@@ -30,6 +30,16 @@ object BlocsAnim {
     private const val H = 600f
     private const val B = 48f
 
+    // Couleurs de JJ (kind 16) et Mikey (kind 17) : choisies par defaut, modifiables ici facilement.
+    private const val JJ_SKIN = "#F5C9A6"; private const val JJ_SKIN_D = "#DDA67F"
+    private const val JJ_HAIR = "#5A3820"; private const val JJ_HAIR_L = "#7B5232"
+    private const val JJ_HOODIE = "#22A84A"; private const val JJ_HOODIE_D = "#177A35"
+    private const val JJ_PANTS = "#2B2F3A"; private const val JJ_PANTS_D = "#1A1D25"; private const val JJ_SHOE = "#2B2F3A"
+    private const val MK_SKIN = "#F5C9A6"; private const val MK_SKIN_D = "#DDA67F"
+    private const val MK_HAIR = "#A68A3E"; private const val MK_HAIR_L = "#C3A659"
+    private const val MK_HOODIE = "#FACC15"; private const val MK_HOODIE_D = "#CA9A04"
+    private const val MK_PANTS = "#2F6FD0"; private const val MK_PANTS_D = "#1F4E9C"; private const val MK_SHOE = "#E5E7EB"
+
     private const val STAND = 0
     private const val CROSS = 1
     private const val WALK0 = 2
@@ -67,7 +77,7 @@ object BlocsAnim {
             pkStage = 0; pkT = -100f; mnN = -1; mnT = t
         }
         lastT = t; lastVariant = s.variant
-        kind = s.kind.coerceIn(0, 15)
+        kind = s.kind.coerceIn(0, 17)
         ga = 1f
         g.save()
         g.clipRect(0f, 0f, 320f, 200f)
@@ -315,7 +325,9 @@ object BlocsAnim {
         arrayOf("#9CA3AF", "#6B7280", "#9CA3AF", "#6B7280", "#6B7280", "#4B5563", "#6B7280"),
         arrayOf("#86EFAC", "#4ADE80", "#86EFAC", "#4ADE80", "#4ADE80", "#22C55E", "#4ADE80"),
         arrayOf("#D6A77A", "#B07F54", "#8B5A2B", "#6E4421", "#8B5A2B", "#6E4421", "#8B5A2B"),
-        arrayOf("#CBD5E1", "#94A3B8", "#94A3B8", "#64748B", "#64748B", "#475569", "#64748B")
+        arrayOf("#CBD5E1", "#94A3B8", "#94A3B8", "#64748B", "#64748B", "#475569", "#64748B"),
+        arrayOf(JJ_SKIN, JJ_SKIN_D, JJ_HOODIE, JJ_HOODIE_D, JJ_PANTS, JJ_PANTS_D, JJ_SHOE),
+        arrayOf(MK_SKIN, MK_SKIN_D, MK_HOODIE, MK_HOODIE_D, MK_PANTS, MK_PANTS_D, MK_SHOE)
     )
 
     // Tampon du personnage (contour sombre = silhouette decalee autour)
@@ -499,6 +511,25 @@ object BlocsAnim {
                 R(x + 8f, y + 5f, 4f, 3f, Color.WHITE); R(x + 3.5f, y + 5.5f, 2f, 2f, c("#16A34A")); R(x + 8.5f, y + 5.5f, 2f, 2f, c("#16A34A")); R(x + 2f, y + 4f, 3.5f, 0.8f, c("#5B3A1E"))
                 R(x + 8.5f, y + 4f, 3.5f, 0.8f, c("#5B3A1E")); R(x + 5.5f, y + 7f, 3f, 5f, skinD); R(x + 5.5f, y + 7f, 3f, 1f, c("#C4916A")); R(x + 1f, y + 9.5f, 2f, 1.4f, c("#FF8FA3"))
                 R(x + 11f, y + 9.5f, 2f, 1.4f, c("#FF8FA3")); R(x + 2f, y + 18f, 10f, 1f, c("#FACC15"))
+            }
+            16, 17 -> {
+                val hc = c(if (k == 16) JJ_HAIR else MK_HAIR); val hl = c(if (k == 16) JJ_HAIR_L else MK_HAIR_L)
+                // capuche : bords autour du visage + col, cordons
+                R(x - 1.5f, y + 3f, 2f, 10f, shirt); R(x + 13.5f, y + 3f, 2f, 10f, shirt)
+                R(x - 1.5f, y + 3f, 0.8f, 10f, shirtD); R(x + 14.7f, y + 3f, 0.8f, 10f, shirtD)
+                R(x - 1f, y + 12.8f, 16f, 2.5f, shirt); R(x - 1f, y + 14.3f, 16f, 1f, shirtD)
+                R(x + 4.5f, y + 14.5f, 1f, 4f, Color.WHITE); R(x + 8.5f, y + 14.5f, 1f, 4f, Color.WHITE)
+                // cheveux courts + frange
+                R(x - 0.5f, y - 1f, 15f, 4.5f, hc); R(x - 0.5f, y + 2f, 2f, 3f, hc); R(x + 12.5f, y + 2f, 2f, 3f, hc)
+                R(x + 2f, y + 3f, 4f, 1.2f, hc); R(x + 8.5f, y + 3f, 3f, 1.2f, hc); R(x + 3f, y - 1f, 6f, 1f, hl)
+                // yeux
+                R(x + 2.5f, y + 5.5f, 3.5f, 4f, Color.WHITE); R(x + 8f, y + 5.5f, 3.5f, 4f, Color.WHITE)
+                R(x + 3.7f, y + 6.5f, 2.3f, 3f, dark); R(x + 9.2f, y + 6.5f, 2.3f, 3f, dark)
+                R(x + 4.2f, y + 6.8f, 1f, 1f, Color.WHITE); R(x + 9.7f, y + 6.8f, 1f, 1f, Color.WHITE)
+                // joues + grand sourire
+                R(x + 1f, y + 9.5f, 2f, 1.4f, c("#FF8FA3")); R(x + 11f, y + 9.5f, 2f, 1.4f, c("#FF8FA3"))
+                R(x + 3.5f, y + 10.2f, 7f, 2.6f, c("#B4232C")); R(x + 4f, y + 10.2f, 6f, 1.1f, Color.WHITE)
+                R(x + 3f, y + 9.6f, 1f, 1f, c("#B4232C")); R(x + 10f, y + 9.6f, 1f, 1f, c("#B4232C"))
             }
             15 -> {
                 R(x + 6.5f, y - 3f, 1f, 3f, c("#64748B")); R(x + 6f, y - 4f, 2f, 1.5f, c("#F87171")); R(x - 1f, y + 6f, 1.5f, 2f, c("#64748B")); R(x + 13.5f, y + 6f, 1.5f, 2f, c("#64748B"))

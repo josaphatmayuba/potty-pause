@@ -75,7 +75,7 @@ class ReminderService : Service() {
             tts?.speak(phrase, TextToSpeech.QUEUE_FLUSH, null, "pipi")
         } else if (ttsReady) {
             val name = Prefs.childName(this)
-            val who = resources.getStringArray(R.array.blocs_who)[currentKind.coerceIn(0, 15)]
+            val who = resources.getStringArray(R.array.blocs_who)[currentKind.coerceIn(0, 17)]
             val phrase = (if (name.isNotEmpty()) getString(R.string.say_blocs_name, name) else getString(R.string.say_blocs_noname)) +
                 (if (who.isNotEmpty()) getString(R.string.say_blocs_who, who) else "") + getString(R.string.say_blocs_end)
             tts?.speak(phrase, TextToSpeech.QUEUE_FLUSH, null, "pipi")
