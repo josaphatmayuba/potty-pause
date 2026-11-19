@@ -69,12 +69,34 @@ object Prefs {
     fun lockedUntilWall(c: Context) = p(c).getLong("lockedUntilWall", 0L)
     fun setLockedUntilWall(c: Context, v: Long) = p(c).edit().putLong("lockedUntilWall", v).apply()
 
-    // Personnage au hasard a chaque rappel (0..17), jamais le meme deux fois de suite.
-    fun nextCharacter(c: Context): Int {
-        val last = p(c).getInt("char", -1)
-        var n = kotlin.random.Random.nextInt(18)
-        if (n == last) n = (n + 1 + kotlin.random.Random.nextInt(17)) % 18
-        p(c).edit().putInt("char", n).apply()
+    // Personnage : "hasard" (tous), "fam:mc", "fam:sp", "mc:0".."mc:17", "sp:1".."sp:12".
+    // Ancienne valeur "0".."17" migree vers "mc:N".
+    fun character(c: Context): String {
+        val v = p(c).getString("character", "hasard")!!
+        val n = v.toIntOrNull()
+        if (n != null) {
+            val m = "mc:" + n.coerceIn(0, 17)
+            p(c).edit().putString("character", m).apply()
+            return m
+        }
+        return v
+    }
+    fun setCharacter(c: Context, v: String) = p(c).edit().putString("character", v).apply()
+
+    // Identifiant tire selon le choix ; jamais le meme deux fois de suite quand c'est aleatoire.
+    fun nextCharacter(c: Context): String {
+        val ch = character(c)
+        if (ch.startsWith("mc:") || ch.startsWith("sp:")) return ch
+        val pool = ArrayList<String>()
+        if (ch != "fam:sp") for (i in 0..17) pool.add("mc:$i")
+        if (ch != "fam:mc") for (i in 1..12) pool.add("sp:$i")
+        val last = p(c).getString("charLast", "")!!
+        var n = pool[kotlin.random.Random.nextInt(pool.size)]
+        if (n == last && pool.size > 1) {
+            val k = pool.indexOf(n)
+            n = pool[(k + 1 + kotlin.random.Random.nextInt(pool.size - 1)) % pool.size]
+        }
+        p(c).edit().putString("charLast", n).apply()
         return n
     }
 

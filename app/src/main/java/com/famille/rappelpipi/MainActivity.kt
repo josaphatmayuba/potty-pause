@@ -222,6 +222,25 @@ class MainActivity : Activity() {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, animIds.map { animName(it) })
             setSelection(animIds.indexOf(Prefs.blocsAnim(this@MainActivity)).coerceAtLeast(0))
         }
+        // "" = separateur non selectionnable (on garde alors la valeur precedente).
+        val charIds = ArrayList<String>().apply {
+            add("hasard"); add("fam:mc"); add("fam:sp"); add("")
+            for (i in 0..17) add("mc:$i")
+            for (i in 1..12) add("sp:$i")
+        }
+        val charLabels = ArrayList<String>().apply {
+            add(getString(R.string.char_random)); add(getString(R.string.char_random_mc)); add(getString(R.string.char_random_sp))
+            add(getString(R.string.char_sep))
+            resources.getStringArray(R.array.char_names).forEach { add(getString(R.string.char_prefix_mc) + " " + it) }
+            resources.getStringArray(R.array.sprunki_names).forEach { add(getString(R.string.char_prefix_sp) + " " + it) }
+        }
+        val charSpin = Spinner(this).apply {
+            minimumHeight = dp(48)
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
+                charLabels)
+            setSelection(charIds.indexOf(Prefs.character(this@MainActivity)).coerceAtLeast(0))
+        }
+        val charLabel = label(getString(R.string.lbl_character))
         val animLabel = label(getString(R.string.lbl_anim))
         val photoWarn = TextView(this).apply {
             text = getString(R.string.warn_photo_no_image)
@@ -237,6 +256,8 @@ class MainActivity : Activity() {
             val showAnim = t == "blocs" || t == "hasard"
             animLabel.visibility = if (showAnim) View.VISIBLE else View.GONE
             animSpin.visibility = if (showAnim) View.VISIBLE else View.GONE
+            charLabel.visibility = if (showAnim) View.VISIBLE else View.GONE
+            charSpin.visibility = if (showAnim) View.VISIBLE else View.GONE
             val hasImg = Prefs.imageUri(this) != null
             photoWarn.visibility = if (t == "photo" && !hasImg) View.VISIBLE else View.GONE
             removeBtn.visibility = if (hasImg) View.VISIBLE else View.GONE
@@ -248,6 +269,7 @@ class MainActivity : Activity() {
         }
         col.addView(label(getString(R.string.lbl_theme))); col.addView(themeSpin)
         col.addView(animLabel); col.addView(animSpin)
+        col.addView(charLabel); col.addView(charSpin)
         col.addView(btn(getString(R.string.btn_pick_image)).apply {
             setOnClickListener {
                 val pick = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -360,6 +382,7 @@ class MainActivity : Activity() {
             Prefs.setActive(this@MainActivity, fromMin, toMin, limitChk.isChecked)
             Prefs.setTheme(this@MainActivity, themeIds[themeSpin.selectedItemPosition.coerceIn(0, themeIds.size - 1)])
             Prefs.setBlocsAnim(this@MainActivity, animIds[animSpin.selectedItemPosition.coerceIn(0, animIds.size - 1)])
+            charIds[charSpin.selectedItemPosition.coerceIn(0, charIds.size - 1)].let { if (it.isNotEmpty()) Prefs.setCharacter(this@MainActivity, it) }
             if (!Settings.canDrawOverlays(this@MainActivity)) {
                 Toast.makeText(this@MainActivity, getString(R.string.toast_allow_overlay), Toast.LENGTH_LONG).show()
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))

@@ -31,14 +31,17 @@ object BlocsAnim {
     private const val B = 48f
 
     // Couleurs de JJ (kind 16) et Mikey (kind 17) : choisies par defaut, modifiables ici facilement.
-    private const val JJ_SKIN = "#F5C9A6"; private const val JJ_SKIN_D = "#DDA67F"
-    private const val JJ_HAIR = "#5A3820"; private const val JJ_HAIR_L = "#7B5232"
-    private const val JJ_HOODIE = "#22A84A"; private const val JJ_HOODIE_D = "#177A35"
-    private const val JJ_PANTS = "#2B2F3A"; private const val JJ_PANTS_D = "#1A1D25"; private const val JJ_SHOE = "#2B2F3A"
-    private const val MK_SKIN = "#F5C9A6"; private const val MK_SKIN_D = "#DDA67F"
-    private const val MK_HAIR = "#A68A3E"; private const val MK_HAIR_L = "#C3A659"
-    private const val MK_HOODIE = "#FACC15"; private const val MK_HOODIE_D = "#CA9A04"
-    private const val MK_PANTS = "#2F6FD0"; private const val MK_PANTS_D = "#1F4E9C"; private const val MK_SHOE = "#E5E7EB"
+    private const val JJ_SKIN = "#FFC9A8"; private const val JJ_SKIN_D = "#E6A988"
+    private const val JJ_HAIR = "#5A3328"; private const val JJ_HAIR_L = "#7B4A3A"
+    private const val JJ_HOODIE = "#FDFDFD"; private const val JJ_HOODIE_D = "#E3E3E3"
+    private const val JJ_PANTS = "#2A2A2E"; private const val JJ_PANTS_D = "#141416"; private const val JJ_SHOE = "#39FF14"
+    private const val JJ_SHOE2 = "#FF00C8"; private const val JJ_EYE = "#6FD6FF"; private const val JJ_PUPIL = "#2A8FD0"
+    private val JJ_RAINBOW = arrayOf("#E00000", "#F28A00", "#F5C400", "#3CCB2A", "#00B8D4", "#0A4FC0", "#7A10C0")
+    private const val MK_SKIN = "#4DBA32"; private const val MK_SKIN_D = "#33881F"
+    private const val MK_HAIR = "#1A1A1A"; private const val MK_HAIR_L = "#D9A826"
+    private const val MK_HOODIE = "#2B2B2B"; private const val MK_HOODIE_D = "#171717"
+    private const val MK_PANTS = "#5B6068"; private const val MK_PANTS_D = "#40444B"; private const val MK_SHOE = "#F2F2F2"
+    private const val MK_SLEEVE = "#DC2F2F"; private const val MK_RED = "#D41414"; private const val MK_GOLD = "#E8B830"; private const val MK_BLACK = "#111111"
 
     private const val STAND = 0
     private const val CROSS = 1
@@ -60,6 +63,48 @@ object BlocsAnim {
 
     private var ga = 1f
     private var kind = 0
+    private var sprunki = 0
+    private var appCtx: android.content.Context? = null
+    fun init(c: android.content.Context) { if (appCtx == null) appCtx = c.applicationContext }
+    private val sprBmps = arrayOfNulls<Bitmap>(13)
+    private val sprFail = BooleanArray(13)
+    private val sprPaint = Paint().apply { isAntiAlias = true; isFilterBitmap = true }
+    private fun sprBitmap(n: Int): Bitmap? {
+        sprBmps[n]?.let { return it }
+        if (sprFail[n]) return null
+        val ctx = appCtx ?: return null
+        return try {
+            val bm = ctx.assets.open("sprunki/sprk%02d.png".format(n)).use { android.graphics.BitmapFactory.decodeStream(it) }
+            if (bm == null) sprFail[n] = true else sprBmps[n] = bm
+            bm
+        } catch (e: Exception) { sprFail[n] = true; null }
+    }
+
+    // Sprunki 2D : danse = balancement +-8 deg autour des pieds, rebond, squash and stretch.
+    private fun drawSprunki(g: Canvas, cx: Float, fy: Float, u0: Float, pose: Int, f: Boolean): Boolean {
+        val bm = sprBitmap(sprunki) ?: return false
+        val h = 34f * u0
+        val w = h * bm.width / bm.height
+        val tt = max(lastT, 0f)
+        val fast = if (pose == CROSS) 2f else 1f
+        val ph = tt * 2f * PI.toFloat() * 1.6f * fast
+        var rot = sin(ph) * 8f
+        var hop = abs(sin(ph)) * h * (if (pose == CROSS) 0.05f else 0.04f)
+        val sy = 1f + sin(ph * 2f) * 0.05f
+        when (pose) {
+            JUMP -> hop += h * 0.18f
+            HAPPY -> { hop += abs(sin(ph * 0.5f)) * h * 0.3f; rot += sin(ph * 0.5f) * 14f }
+        }
+        val sx = 2f - sy
+        g.save()
+        g.translate(cx, fy - hop)
+        g.rotate(rot)
+        g.scale(if (f) -sx else sx, sy)
+        dst.set(-w / 2f, -h, w / 2f, 0f)
+        g.drawBitmap(bm, null, dst, sprPaint)
+        g.restore()
+        return true
+    }
     private val colors = HashMap<String, Int>()
     private fun c(h: String): Int = colors.getOrPut(h) { Color.parseColor(h) }
 
@@ -78,6 +123,7 @@ object BlocsAnim {
         }
         lastT = t; lastVariant = s.variant
         kind = s.kind.coerceIn(0, 17)
+        sprunki = s.sprunki.coerceIn(0, 12)
         ga = 1f
         g.save()
         g.clipRect(0f, 0f, 320f, 200f)
@@ -341,7 +387,11 @@ object BlocsAnim {
         if (x2 > x1 && y2 > y1) charCanvas.drawRect(x1, y1, x2, y2, cp)
     }
 
-    private fun hero(g: Canvas, cx: Float, fy: Float, u0: Float, pose: Int, f: Boolean = false) {
+    // yaw : NaN = automatique (3/4 face, tourne vers la marche) ; swing : coup de pioche 0..1 (0 = aucun).
+    private fun hero(g: Canvas, cx: Float, fy: Float, u0: Float, pose: Int, f: Boolean = false, yaw: Float = Float.NaN, swing: Float = 0f) {
+        if (sprunki > 0 && drawSprunki(g, cx, fy, u0, pose, f)) return
+        if (Player3D.draw(g, kind, cx, fy, u0, pose, f, yaw, swing, lastT)) return
+        // Secours 2D (skin introuvable)
         val u = max(1f, rnd(u0))
         val ox = 5f * u; val oy = 6f * u
         val x0 = rnd(cx - 7f * u) - ox; val y0 = rnd(fy - 31.5f * u) - oy
@@ -366,41 +416,54 @@ object BlocsAnim {
         val pants = c(pl[4]); val pantsD = c(pl[5]); val shoe = c(pl[6]); val dark = c("#1F2937")
         val hair = c("#5B3A1E"); val hairL = c("#7A5230")
         val s = if (f) 1f else 0f
+        val arm = { a: Float, b: Float, w: Float, h: Float ->
+            if (k == 16) { for (i in 0 until 7) R(a, b + h * i / 7f, w, h / 7f + 0.05f, c(JJ_RAINBOW[i])) }
+            else R(a, b, w, h, if (k == 17) c(MK_SLEEVE) else shirt)
+        }
+        val sh = { a: Float, b: Float, w: Float, h: Float, i: Int ->
+            if (k == 16) R(a, b, w, h, c(if (i == 0) JJ_SHOE else JJ_SHOE2))
+            else if (k == 17) {
+                R(a, b, w, h, Color.WHITE)
+                for (cx in 0 until w.toInt()) for (cy in 0 until h.toInt()) if ((cx + cy + i) % 2 == 0) R(a + cx, b + cy, 1f, 1f, c(MK_BLACK))
+            } else R(a, b, w, h, shoe)
+        }
         val walk = pose == WALK0 || pose == WALK1
         val wd = if (pose == WALK0) 1 else -1
         // jambes
         if (pose == CROSS) {
             R(x + 7f, y + 22f, 4f, 3f, pantsD); R(x + 5.5f, y + 25f, 4f, 2.5f, pantsD); R(x + 4f, y + 27.5f, 4f, 2.5f, pantsD)
             R(x + 3f, y + 22f, 4f, 3f, pants); R(x + 4.5f, y + 25f, 4f, 2.5f, pants); R(x + 6f, y + 27.5f, 4f, 2.5f, pants)
-            R(x + 3f, y + 29.5f, 5f, 2f, shoe); R(x + 6f, y + 29.5f, 5f, 2f, shoe)
+            sh(x + 3f, y + 29.5f, 5f, 2f, 0); sh(x + 6f, y + 29.5f, 5f, 2f, 1)
         } else if (walk) {
             val la = if (wd > 0) 8f else 6.5f
             val lb = if (wd > 0) 6.5f else 8f
             R(x + 2f, y + 22f, 4f, la, pants); R(x + 2f, y + 22f, 1f, la, pantsD); R(x + 8f, y + 22f, 4f, lb, pants)
-            R(x + 1.5f, y + 21.5f + la, 5f, 2f, shoe); R(x + 7.5f, y + 21.5f + lb, 5f, 2f, shoe)
+            sh(x + 1.5f, y + 21.5f + la, 5f, 2f, 0); sh(x + 7.5f, y + 21.5f + lb, 5f, 2f, 1)
         } else if (pose == JUMP) {
             R(x + 1.5f, y + 22f, 4f, 5.5f, pants); R(x + 1.5f, y + 22f, 1f, 5.5f, pantsD); R(x + 8.5f, y + 22f, 4f, 5.5f, pants)
-            R(x + 1f, y + 27f, 5f, 2f, shoe); R(x + 8f, y + 27f, 5f, 2f, shoe)
+            sh(x + 1f, y + 27f, 5f, 2f, 0); sh(x + 8f, y + 27f, 5f, 2f, 1)
         } else {
             val o = if (pose == HAPPY) 1f else 0f
             R(x + 3f - o, y + 22f, 4f, 8f, pants); R(x + 3f - o, y + 22f, 1f, 8f, pantsD); R(x + 7f + o, y + 22f, 4f, 8f, pants)
-            R(x + 2.5f - o, y + 29.5f, 5f, 2f, shoe); R(x + 6.5f + o, y + 29.5f, 5f, 2f, shoe)
+            sh(x + 2.5f - o, y + 29.5f, 5f, 2f, 0); sh(x + 6.5f + o, y + 29.5f, 5f, 2f, 1)
         }
         // corps
         R(x + 2f, y + 14f, 10f, 9f, shirt); R(x + 2f, y + 21f, 10f, 2f, shirtD)
+        if (k == 16) R(x + 5f, y + 14f, 4f, 1.5f, skin)
+        if (k == 17) { R(x + 3.5f, y + 14f, 7f, 1.5f, c(MK_RED)); R(x + 5f, y + 16f, 4f, 1f, c(MK_GOLD)); R(x + 6.5f, y + 16f, 1.5f, 4.5f, c(MK_GOLD)); R(x + 5f, y + 19f, 3f, 1.5f, c(MK_GOLD)) }
         // bras
         if (pose == CROSS) {
-            R(x - 1f + s * 0.5f, y + 14f, 3f, 6f, shirt); R(x + 12f - s * 0.5f, y + 14f, 3f, 6f, shirt)
-            R(x + 1f, y + 18f, 3f, 3f, shirt); R(x + 10f, y + 18f, 3f, 3f, shirt)
+            arm(x - 1f + s * 0.5f, y + 14f, 3f, 6f); arm(x + 12f - s * 0.5f, y + 14f, 3f, 6f)
+            arm(x + 1f, y + 18f, 3f, 3f); arm(x + 10f, y + 18f, 3f, 3f)
             R(x + 4f, y + 18.5f, 6f, 3f, skin); R(x + 4f, y + 20.5f, 6f, 0.6f, skinD)
         } else if (pose == JUMP || pose == HAPPY) {
-            R(x - 2.5f, y + 7f, 3f, 9f, shirt); R(x + 13.5f, y + 7f, 3f, 9f, shirt)
+            arm(x - 2.5f, y + 7f, 3f, 9f); arm(x + 13.5f, y + 7f, 3f, 9f)
             R(x - 2.5f, y + 5f, 3f, 2.5f, skin); R(x + 13.5f, y + 5f, 3f, 2.5f, skin)
         } else if (walk) {
-            R(x - 1f, y + 14f, 3f, if (wd > 0) 6f else 8f, shirt); R(x - 1f, y + (if (wd > 0) 20f else 22f), 3f, 2f, skin)
-            R(x + 12f, y + 14f, 3f, if (wd > 0) 8f else 6f, shirt); R(x + 12f, y + (if (wd > 0) 22f else 20f), 3f, 2f, skin)
+            arm(x - 1f, y + 14f, 3f, if (wd > 0) 6f else 8f); R(x - 1f, y + (if (wd > 0) 20f else 22f), 3f, 2f, skin)
+            arm(x + 12f, y + 14f, 3f, if (wd > 0) 8f else 6f); R(x + 12f, y + (if (wd > 0) 22f else 20f), 3f, 2f, skin)
         } else {
-            R(x - 1f, y + 14f, 3f, 8f, shirt); R(x + 12f, y + 14f, 3f, 8f, shirt)
+            arm(x - 1f, y + 14f, 3f, 8f); arm(x + 12f, y + 14f, 3f, 8f)
             R(x - 1f, y + 22f, 3f, 2f, skin); R(x + 12f, y + 22f, 3f, 2f, skin)
         }
         // tete
@@ -512,24 +575,22 @@ object BlocsAnim {
                 R(x + 8.5f, y + 4f, 3.5f, 0.8f, c("#5B3A1E")); R(x + 5.5f, y + 7f, 3f, 5f, skinD); R(x + 5.5f, y + 7f, 3f, 1f, c("#C4916A")); R(x + 1f, y + 9.5f, 2f, 1.4f, c("#FF8FA3"))
                 R(x + 11f, y + 9.5f, 2f, 1.4f, c("#FF8FA3")); R(x + 2f, y + 18f, 10f, 1f, c("#FACC15"))
             }
-            16, 17 -> {
-                val hc = c(if (k == 16) JJ_HAIR else MK_HAIR); val hl = c(if (k == 16) JJ_HAIR_L else MK_HAIR_L)
-                // capuche : bords autour du visage + col, cordons
-                R(x - 1.5f, y + 3f, 2f, 10f, shirt); R(x + 13.5f, y + 3f, 2f, 10f, shirt)
-                R(x - 1.5f, y + 3f, 0.8f, 10f, shirtD); R(x + 14.7f, y + 3f, 0.8f, 10f, shirtD)
-                R(x - 1f, y + 12.8f, 16f, 2.5f, shirt); R(x - 1f, y + 14.3f, 16f, 1f, shirtD)
-                R(x + 4.5f, y + 14.5f, 1f, 4f, Color.WHITE); R(x + 8.5f, y + 14.5f, 1f, 4f, Color.WHITE)
-                // cheveux courts + frange
-                R(x - 0.5f, y - 1f, 15f, 4.5f, hc); R(x - 0.5f, y + 2f, 2f, 3f, hc); R(x + 12.5f, y + 2f, 2f, 3f, hc)
-                R(x + 2f, y + 3f, 4f, 1.2f, hc); R(x + 8.5f, y + 3f, 3f, 1.2f, hc); R(x + 3f, y - 1f, 6f, 1f, hl)
-                // yeux
-                R(x + 2.5f, y + 5.5f, 3.5f, 4f, Color.WHITE); R(x + 8f, y + 5.5f, 3.5f, 4f, Color.WHITE)
-                R(x + 3.7f, y + 6.5f, 2.3f, 3f, dark); R(x + 9.2f, y + 6.5f, 2.3f, 3f, dark)
-                R(x + 4.2f, y + 6.8f, 1f, 1f, Color.WHITE); R(x + 9.7f, y + 6.8f, 1f, 1f, Color.WHITE)
-                // joues + grand sourire
-                R(x + 1f, y + 9.5f, 2f, 1.4f, c("#FF8FA3")); R(x + 11f, y + 9.5f, 2f, 1.4f, c("#FF8FA3"))
-                R(x + 3.5f, y + 10.2f, 7f, 2.6f, c("#B4232C")); R(x + 4f, y + 10.2f, 6f, 1.1f, Color.WHITE)
-                R(x + 3f, y + 9.6f, 1f, 1f, c("#B4232C")); R(x + 10f, y + 9.6f, 1f, 1f, c("#B4232C"))
+            16 -> {
+                val hc = c(JJ_HAIR); val hl = c(JJ_HAIR_L)
+                R(x - 0.5f, y - 1f, 15f, 4.5f, hc); R(x - 0.5f, y + 2f, 2f, 5f, hc); R(x + 12.5f, y + 2f, 2f, 5f, hc)
+                R(x + 2f, y + 3f, 4f, 1.6f, hc); R(x + 8f, y + 3f, 4f, 1.6f, hc); R(x + 6f, y + 3f, 2f, 0.8f, hc); R(x + 3f, y - 1f, 6f, 1f, hl)
+                R(x + 2f, y + 5f, 4.5f, 4.5f, Color.WHITE); R(x + 7.5f, y + 5f, 4.5f, 4.5f, Color.WHITE)
+                R(x + 3f, y + 5.5f, 3f, 4f, c(JJ_EYE)); R(x + 8.5f, y + 5.5f, 3f, 4f, c(JJ_EYE))
+                R(x + 4f, y + 7f, 1.6f, 2f, c(JJ_PUPIL)); R(x + 9.5f, y + 7f, 1.6f, 2f, c(JJ_PUPIL))
+                R(x + 3f, y + 5.5f, 1.2f, 1.2f, Color.WHITE); R(x + 8.5f, y + 5.5f, 1.2f, 1.2f, Color.WHITE)
+                R(x + 1f, y + 9.5f, 2f, 1.4f, c("#FF9A9A")); R(x + 11f, y + 9.5f, 2f, 1.4f, c("#FF9A9A"))
+                R(x + 5.5f, y + 11f, 3f, 1f, c("#C25A5A"))
+            }
+            17 -> {
+                R(x - 0.5f, y - 1.5f, 15f, 4f, c(MK_BLACK)); R(x - 0.5f, y + 2.5f, 15f, 1.8f, c(MK_RED))
+                R(x + 5f, y - 2.5f, 4f, 1.5f, c(MK_GOLD)); R(x + 6f, y - 3.5f, 2f, 1f, c(MK_GOLD))
+                R(x + 2.5f, y + 5.5f, 2f, 3f, c(MK_BLACK)); R(x + 9.5f, y + 5.5f, 2f, 3f, c(MK_BLACK))
+                R(x + 3f, y + 9.3f, 8f, 3f, c(MK_BLACK)); R(x + 4f, y + 9.8f, 6f, 2.4f, c(MK_RED)); R(x + 5f, y + 9.3f, 1.8f, 1.5f, Color.WHITE)
             }
             15 -> {
                 R(x + 6.5f, y - 3f, 1f, 3f, c("#64748B")); R(x + 6f, y - 4f, 2f, 1.5f, c("#F87171")); R(x - 1f, y + 6f, 1.5f, 2f, c("#64748B")); R(x + 13.5f, y + 6f, 1.5f, 2f, c("#64748B"))
@@ -686,7 +747,7 @@ object BlocsAnim {
             val yb = railY(cx)
             val moving = st.progress < 1f
             cabin(g, 740f, 480f, 0f)
-            hero(g, cx, yb - 14f, 5f, if (bump(cx) > 10f) HAPPY else STAND)
+            hero(g, cx, yb - 14f, 5f, if (bump(cx) > 10f) HAPPY else STAND, false, 0.9f)
             cart(g, cx, yb, t, moving)
             if (moving) for (i in 0 until 8) {
                 val a = (t * 4f + i / 8f) % 1f
@@ -837,10 +898,10 @@ object BlocsAnim {
             val wt = 0.15f * DT
             val walking = n > 0 && el < wt
             val cx = if (walking) lerp(prev, tgt, el / wt) else tgt
-            hero(g, cx, fy0, 4f, if (walking) walkPose(t, 10f) else STAND)
+            val sk = if (walking) 0f else max(0.001f, abs(sin(((el % DT) / DT) * PI.toFloat() * 3f)))
+            hero(g, cx, fy0, 4f, if (walking) walkPose(t, 10f) else STAND, false, 1.05f, sk)
             if (!walking) {
-                val ph = (el % DT) / DT
-                pickaxe(g, cx + 20f, fy0 - 70f, -1.9f + abs(sin(ph * PI.toFloat() * 3f)) * 1.7f)
+                pickaxe(g, cx + 36f, fy0 - 84f + (1f - sk) * -22f, -1.9f + sk * 1.7f)
             }
         } else {
             val d = st.celebrateT

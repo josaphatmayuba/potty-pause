@@ -98,6 +98,47 @@
     <string name="anim_3">Le parkour</string>
     <string name="anim_4">Le mineur</string>
     <string name="anim_5">Le portail</string>
+    <string name="lbl_character">Personnage</string>
+    <string name="char_random_mc">Au hasard : Minecraft</string>
+    <string name="char_random_sp">Au hasard : Sprunki</string>
+    <string name="char_prefix_mc">Minecraft ·</string>
+    <string name="char_prefix_sp">Sprunki ·</string>
+    <string name="char_sep">──────────</string>
+    <string-array name="sprunki_names">
+        <item>Rouge à pics</item>
+        <item>Rose lapin</item>
+        <item>Gris chat</item>
+        <item>Violet casque</item>
+        <item>Jaune antennes</item>
+        <item>Orange endormi</item>
+        <item>Turquoise ours</item>
+        <item>Vert lime</item>
+        <item>Beige chapeau</item>
+        <item>Robot écran</item>
+        <item>Blanc hélice</item>
+        <item>Noir haut-de-forme</item>
+    </string-array>
+    <string name="char_random">Au hasard (tous)</string>
+    <string-array name="char_names">
+        <item>Enfant</item>
+        <item>Petit monstre</item>
+        <item>Panda</item>
+        <item>Chiot</item>
+        <item>Cochon</item>
+        <item>Mouton</item>
+        <item>Vache</item>
+        <item>Poussin</item>
+        <item>Renard</item>
+        <item>Axolotl</item>
+        <item>Abeille</item>
+        <item>Grenouille</item>
+        <item>Chat</item>
+        <item>Gelée</item>
+        <item>Villageois</item>
+        <item>Robot</item>
+        <item>JJ</item>
+        <item>Mikey</item>
+    </string-array>
 
     <!-- Spoken phrases (TTS) -->
     <string name="say_geant">Oh là là, j\'ai trop envie de faire pipi ! Et toi ? Allez, on y va !</string>

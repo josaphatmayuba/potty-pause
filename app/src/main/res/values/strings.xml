@@ -98,6 +98,47 @@
     <string name="anim_3">The parkour</string>
     <string name="anim_4">The miner</string>
     <string name="anim_5">The portal</string>
+    <string name="lbl_character">Character</string>
+    <string name="char_random_mc">Random: Minecraft</string>
+    <string name="char_random_sp">Random: Sprunki</string>
+    <string name="char_prefix_mc">Minecraft ·</string>
+    <string name="char_prefix_sp">Sprunki ·</string>
+    <string name="char_sep">──────────</string>
+    <string-array name="sprunki_names">
+        <item>Red Spikes</item>
+        <item>Pink Bunny</item>
+        <item>Gray Cat</item>
+        <item>Purple Headphones</item>
+        <item>Yellow Antennae</item>
+        <item>Sleepy Orange</item>
+        <item>Teal Bear</item>
+        <item>Lime Green</item>
+        <item>Hat Beige</item>
+        <item>Screen Robot</item>
+        <item>Propeller White</item>
+        <item>Top Hat Black</item>
+    </string-array>
+    <string name="char_random">Random (all)</string>
+    <string-array name="char_names">
+        <item>Child</item>
+        <item>Little monster</item>
+        <item>Panda</item>
+        <item>Puppy</item>
+        <item>Pig</item>
+        <item>Sheep</item>
+        <item>Cow</item>
+        <item>Chick</item>
+        <item>Fox</item>
+        <item>Axolotl</item>
+        <item>Bee</item>
+        <item>Frog</item>
+        <item>Cat</item>
+        <item>Slime</item>
+        <item>Villager</item>
+        <item>Robot</item>
+        <item>JJ</item>
+        <item>Mikey</item>
+    </string-array>
 
     <!-- Spoken phrases (TTS) -->
     <string name="say_geant">Oh my, I really need to pee! What about you? Come on, let\'s go!</string>

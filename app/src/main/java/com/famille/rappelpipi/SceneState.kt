@@ -21,6 +21,8 @@ class SceneState {
     var image: Bitmap? = null
     /** Personnage du theme blocs (0..15). */
     var kind = 0
+    /** Sprunki 1..12 si le personnage est un Sprunki (0 = Minecraft, kind utilise). */
+    var sprunki = 0
     /** Animation du theme blocs (0..5). */
     var variant = 0
     /** Diamants gagnes (0..5) et coffre ouvert. */

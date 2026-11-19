@@ -47,6 +47,8 @@ class ThemeView(context: Context, val theme: String) : View(context) {
 
     val state = SceneState()
 
+    init { Player3D.init(context); BlocsAnim.init(context) }
+
     private val ti: ThemeInfo = Companion.info(theme)
     private val bgColor = Color.parseColor(ti.bg)
     private val barColor = Color.parseColor(ti.bc)

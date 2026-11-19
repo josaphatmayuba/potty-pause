@@ -60,7 +60,7 @@ class ReminderService : Service() {
     private var ttsReady = false
     private var celebrating = false
     private var celebrateEnd: Runnable? = null
-    private var currentKind = 0
+    private var currentWho = ""
 
     // Voix pour un enfant qui ne sait pas encore lire. Repetee toutes les 40 s pendant le blocage.
     private fun sayFor(id: String): String {
@@ -75,7 +75,7 @@ class ReminderService : Service() {
             tts?.speak(phrase, TextToSpeech.QUEUE_FLUSH, null, "pipi")
         } else if (ttsReady) {
             val name = Prefs.childName(this)
-            val who = resources.getStringArray(R.array.blocs_who)[currentKind.coerceIn(0, 17)]
+            val who = currentWho
             val phrase = (if (name.isNotEmpty()) getString(R.string.say_blocs_name, name) else getString(R.string.say_blocs_noname)) +
                 (if (who.isNotEmpty()) getString(R.string.say_blocs_who, who) else "") + getString(R.string.say_blocs_end)
             tts?.speak(phrase, TextToSpeech.QUEUE_FLUSH, null, "pipi")
@@ -444,8 +444,15 @@ class ReminderService : Service() {
         val sc = ThemeView(this, theme)
         sc.state.image = image
         if (theme == "blocs") {
-            sc.state.kind = Prefs.nextCharacter(this)
-            currentKind = sc.state.kind
+            val id = Prefs.nextCharacter(this)
+            val num = id.substringAfter(':').toIntOrNull() ?: 0
+            if (id.startsWith("sp:")) {
+                sc.state.sprunki = num.coerceIn(1, 12)
+                currentWho = resources.getStringArray(R.array.sprunki_names)[sc.state.sprunki - 1]
+            } else {
+                sc.state.kind = num.coerceIn(0, 17)
+                currentWho = resources.getStringArray(R.array.blocs_who)[sc.state.kind]
+            }
             val a = Prefs.blocsAnim(this)
             sc.state.variant = if (a == "hasard") Random.nextInt(6) else (a.toIntOrNull() ?: 0).coerceIn(0, 5)
         }
