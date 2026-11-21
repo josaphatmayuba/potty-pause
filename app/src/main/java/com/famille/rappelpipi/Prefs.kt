@@ -139,6 +139,14 @@ object Prefs {
     fun setNotifiedUpdate(c: Context, ver: Long, at: Long) =
         p(c).edit().putLong("updNotifiedVer", ver).putLong("updNotifiedAt", at).apply()
 
+    // Config a distance : derniere revision appliquee et derniere commande "updateNow" traitee.
+    fun setInterval(c: Context, v: Int) = p(c).edit().putInt("interval", v).apply()
+    fun setLock(c: Context, v: Int) = p(c).edit().putInt("lock", v).apply()
+    fun remoteRev(c: Context) = p(c).getLong("remoteRev", 0L)
+    fun setRemoteRev(c: Context, v: Long) = p(c).edit().putLong("remoteRev", v).apply()
+    fun remoteUpd(c: Context) = p(c).getLong("remoteUpd", 0L)
+    fun setRemoteUpd(c: Context, v: Long) = p(c).edit().putLong("remoteUpd", v).apply()
+
     fun setTheme(c: Context, v: String) = p(c).edit().putString("theme", v).apply()
     fun setBlocsAnim(c: Context, v: String) = p(c).edit().putString("blocsAnim", v).apply()
     fun setImageUri(c: Context, v: String?) = p(c).edit().putString("imageUri", v).apply()

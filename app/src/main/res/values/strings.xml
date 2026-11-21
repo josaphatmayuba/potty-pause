@@ -213,4 +213,8 @@
     <string name="upd_channel">Updates</string>
     <string name="upd_notif_title">New version available</string>
     <string name="upd_notif_text">Tap to update the app</string>
+    <string name="upd_ready_title">Update ready</string>
+    <string name="upd_ready_text">Tap to install</string>
+    <string name="upd_perm_title">Update requested</string>
+    <string name="upd_perm_text">Tap to allow installing, then retry</string>
 </resources>

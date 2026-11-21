@@ -39,6 +39,25 @@ object Updater {
         null
     }
 
+    /** Sans Activity (reseau bloquant) : telecharge l'APK dans cacheDir/update/RappelPipi.apk. */
+    fun downloadApk(c: android.content.Context, url: String): File {
+        val dir = File(c.cacheDir, "update").apply { mkdirs() }
+        val f = File(dir, "RappelPipi.apk")
+        val cn = URL(url).openConnection() as HttpURLConnection
+        cn.connectTimeout = 15000; cn.readTimeout = 30000
+        cn.inputStream.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+        return f
+    }
+
+    /** Intent d'installation de l'APK telecharge (a mettre dans un PendingIntent). */
+    fun installIntent(c: android.content.Context, f: File): Intent {
+        val uri = FileProvider.getUriForFile(c, "${c.packageName}.fileprovider", f)
+        return Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
+
     /** manual = true : affiche aussi "deja a jour" / les erreurs. */
     fun check(a: Activity, manual: Boolean) {
         Thread {

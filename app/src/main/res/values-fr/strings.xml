@@ -213,4 +213,8 @@
     <string name="upd_channel">Mises à jour</string>
     <string name="upd_notif_title">Nouvelle version disponible</string>
     <string name="upd_notif_text">Touchez pour mettre à jour l\'application</string>
+    <string name="upd_ready_title">Mise à jour prête</string>
+    <string name="upd_ready_text">Touchez pour installer</string>
+    <string name="upd_perm_title">Mise à jour demandée</string>
+    <string name="upd_perm_text">Touchez pour autoriser l\'installation</string>
 </resources>

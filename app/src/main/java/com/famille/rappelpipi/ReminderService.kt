@@ -183,6 +183,66 @@ class ReminderService : Service() {
         else Prefs.setLockedUntilWall(this, 0L)
         handler.post(tick)
         handler.post(updateCheck)
+        handler.post(remoteCheck)
+        handler.postDelayed(fgGuard, 60_000L)
+    }
+
+    private var fgNotif: Notification? = null
+
+    // Config a distance : au demarrage puis toutes les 15 min ; jamais bloquant, echecs silencieux.
+    private val remoteCheck = object : Runnable {
+        override fun run() {
+            Thread {
+                try {
+                    if (RemoteConfig.checkAndApply(this@ReminderService)) remoteUpdate()
+                } catch (e: Throwable) {
+                }
+            }.start()
+            handler.postDelayed(this, 15L * 60_000L)
+        }
+    }
+
+    // Mise a jour demandee a distance (thread de fond) : telecharge puis notifie « touche pour installer ».
+    private fun remoteUpdate() {
+        val (remote, url) = Updater.fetchLatest() ?: return
+        if (url == null || remote <= Updater.currentCode(this)) return
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel("update", getString(R.string.upd_channel), NotificationManager.IMPORTANCE_DEFAULT)
+        )
+        val flags = android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+        val b = Notification.Builder(this, "update").setAutoCancel(true)
+        if (!packageManager.canRequestPackageInstalls()) {
+            val i = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            b.setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle(getString(R.string.upd_perm_title))
+                .setContentText(getString(R.string.upd_perm_text))
+                .setContentIntent(android.app.PendingIntent.getActivity(this, 2, i, flags))
+        } else {
+            val f = Updater.downloadApk(this, url)
+            b.setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle(getString(R.string.upd_ready_title))
+                .setContentText(getString(R.string.upd_ready_text))
+                .setContentIntent(android.app.PendingIntent.getActivity(this, 3, Updater.installIntent(this, f), flags))
+        }
+        nm.notify(4, b.build())
+    }
+
+    // Garde-fou : si la notification permanente a ete balayee (Android 14), on la remet.
+    private val fgGuard = object : Runnable {
+        override fun run() {
+            try {
+                val nm = getSystemService(NotificationManager::class.java)
+                val n = fgNotif
+                if (n != null && nm.activeNotifications.none { it.id == 1 }) {
+                    if (Build.VERSION.SDK_INT >= 34) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                    else startForeground(1, n)
+                }
+            } catch (e: Throwable) {
+            }
+            handler.postDelayed(this, 60_000L)
+        }
     }
 
     // Verif auto des mises a jour : au demarrage puis au plus 1 fois / 24 h ; echecs silencieux.
@@ -239,6 +299,7 @@ class ReminderService : Service() {
                 android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT))
             .setOngoing(true)
             .build()
+        fgNotif = notif
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(1, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -250,6 +311,8 @@ class ReminderService : Service() {
     override fun onDestroy() {
         handler.removeCallbacks(tick)
         handler.removeCallbacks(updateCheck)
+        handler.removeCallbacks(remoteCheck)
+        handler.removeCallbacks(fgGuard)
         celebrateEnd?.let { handler.removeCallbacks(it) }
         runCatching { unregisterReceiver(screenReceiver) }
         tts?.stop(); tts?.shutdown(); tts = null
