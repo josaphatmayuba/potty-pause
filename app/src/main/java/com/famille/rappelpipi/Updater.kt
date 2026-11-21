@@ -43,10 +43,29 @@ object Updater {
     fun downloadApk(c: android.content.Context, url: String): File {
         val dir = File(c.cacheDir, "update").apply { mkdirs() }
         val f = File(dir, "RappelPipi.apk")
-        val cn = URL(url).openConnection() as HttpURLConnection
-        cn.connectTimeout = 15000; cn.readTimeout = 30000
-        cn.inputStream.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
-        return f
+        val part = File(dir, "RappelPipi.apk.part")
+        var lastErr: Exception? = null
+        for (attempt in 1..3) {
+            try {
+                part.delete()
+                val cn = URL(url).openConnection() as HttpURLConnection
+                cn.connectTimeout = 15000; cn.readTimeout = 30000
+                val expected = cn.contentLengthLong
+                val n = cn.inputStream.use { i -> part.outputStream().use { o -> i.copyTo(o) } }
+                if (expected > 0 && n != expected) throw java.io.IOException("incomplet $n/$expected")
+                // Le fichier doit etre un APK lisible de cette appli, plus recent que la version installee.
+                val info = c.packageManager.getPackageArchiveInfo(part.absolutePath, 0)
+                if (info == null || info.packageName != c.packageName || info.longVersionCode <= currentCode(c))
+                    throw java.io.IOException("apk invalide")
+                f.delete()
+                if (!part.renameTo(f)) throw java.io.IOException("rename")
+                return f
+            } catch (e: Exception) {
+                lastErr = e
+            }
+        }
+        part.delete()
+        throw lastErr ?: java.io.IOException("download")
     }
 
     /** Intent d'installation de l'APK telecharge (a mettre dans un PendingIntent). */
@@ -94,18 +113,8 @@ object Updater {
         toast(a, a.getString(R.string.upd_downloading))
         Thread {
             try {
-                val dir = File(a.cacheDir, "update").apply { mkdirs() }
-                val f = File(dir, "RappelPipi.apk")
-                val c = URL(url).openConnection() as HttpURLConnection
-                c.connectTimeout = 15000; c.readTimeout = 30000
-                c.inputStream.use { i -> f.outputStream().use { o -> i.copyTo(o) } }
-                val uri = FileProvider.getUriForFile(a, "${a.packageName}.fileprovider", f)
-                a.runOnUiThread {
-                    a.startActivity(Intent(Intent.ACTION_VIEW).apply {
-                        setDataAndType(uri, "application/vnd.android.package-archive")
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                }
+                val f = downloadApk(a, url)
+                a.runOnUiThread { a.startActivity(installIntent(a, f)) }
             } catch (e: Exception) {
                 a.runOnUiThread { toast(a, a.getString(R.string.upd_download_failed)) }
             }
