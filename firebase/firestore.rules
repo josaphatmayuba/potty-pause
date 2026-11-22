@@ -1,0 +1,173 @@
+rules_version = '2';
+
+// Pause Pipi / Potty Pause - regles Firestore (mode production : tout est refuse sauf ce qui suit).
+// Contrat des donnees : voir DATA_MODEL.md. Ne jamais stocker de PIN (ni clair ni hash) dans le cloud.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Identite ----------
+    function authed() { return request.auth != null; }
+    function provider() { return request.auth.token.firebase.sign_in_provider; }
+    // Tablette enfant = connexion anonyme ; parent = connexion Google uniquement (google.com).
+    function isTablet() { return authed() && provider() == 'anonymous'; }
+    function isParent() { return authed() && provider() == 'google.com'; }
+
+    // Champs reellement modifies par l'ecriture en cours (update seulement).
+    function changedKeys() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // ---------- Valeurs autorisees (memes listes que RemoteConfig.kt) ----------
+    function themeOk(v) {
+      return v in ['blocs', 'geant', 'bd', 'sablier', 'feu', 'nuit', 'ballon', 'carte', 'porte',
+                   'bouton', 'aqua', 'dino', 'fusee', 'train', 'goutte', 'photo', 'hasard'];
+    }
+    function animOk(v) { return v in ['hasard', '0', '1', '2', '3', '4', '5', '6']; }
+    function charOk(v) {
+      return v is string && (v in ['hasard', 'fam:mc', 'fam:sp']
+        || v.matches('mc:([0-9]|1[0-7])') || v.matches('sp:([1-9]|1[0-2])'));
+    }
+    function nameOk(v) { return v is string && v.size() >= 1 && v.size() <= 40; }
+    function codeOk(c) { return c is string && c.matches('[0-9]{8}'); }
+
+    // Reglages ecrits par le parent (sous-map "settings"). rev obligatoire, le reste optionnel.
+    function settingsOk(s) {
+      return s is map
+        && s.keys().hasOnly(['rev', 'interval', 'lock', 'message', 'theme', 'anim', 'character',
+                             'iconHidden', 'language', 'enabled', 'updateNow', 'updatedAt'])
+        && s.keys().hasAll(['rev'])
+        && s.rev is int && s.rev >= 1
+        && (!('interval' in s) || (s.interval is int && s.interval >= 1 && s.interval <= 600))
+        && (!('lock' in s) || (s.lock is int && s.lock >= 1 && s.lock <= 120))
+        && (!('message' in s) || (s.message is string && s.message.size() <= 200))
+        && (!('theme' in s) || (s.theme is string && themeOk(s.theme)))
+        && (!('anim' in s) || (s.anim is string && animOk(s.anim)))
+        && (!('character' in s) || charOk(s.character))
+        && (!('iconHidden' in s) || s.iconHidden is bool)
+        && (!('language' in s) || (s.language is string && s.language in ['', 'fr', 'en']))
+        && (!('enabled' in s) || s.enabled is bool)
+        && (!('updateNow' in s) || (s.updateNow is int && s.updateNow >= 0))
+        && (!('updatedAt' in s) || s.updatedAt == request.time);
+    }
+
+    // rev strictement croissant (anti-rejeu) ; premiere ecriture libre.
+    function revIncreases(old, nw) {
+      return !('settings' in old) || nw.settings.rev > old.settings.rev;
+    }
+
+    // Champs ecrits par la tablette ; "ch" = ensemble des cles ecrites (creation) ou modifiees (update).
+    function tabletFieldsOk(d, ch) {
+      return (!('lastSeen' in ch) || d.lastSeen == request.time)
+        && (!('appVersion' in ch) || (d.appVersion is string && d.appVersion.size() <= 20))
+        && (!('appCode' in ch) || (d.appCode is int && d.appCode >= 0 && d.appCode < 100000))
+        && (!('androidApi' in ch) || (d.androidApi is int && d.androidApi >= 1 && d.androidApi <= 99))
+        && (!('alerts' in ch) || (d.alerts is list && d.alerts.size() <= 10
+              && d.alerts.hasOnly(['overlay_denied', 'service_stopped', 'battery_optimized',
+                                   'notifications_denied', 'offline_long'])))
+        && (!('applied' in ch) || (d.applied is map && d.applied.keys().hasOnly(['rev', 'at'])
+              && d.applied.keys().hasAll(['rev', 'at']) && d.applied.rev is int && d.applied.at == request.time))
+        && (!('pairCode' in ch) || codeOk(d.pairCode))
+        && (!('pairExpires' in ch) || (d.pairExpires is timestamp && d.pairExpires > request.time
+              && d.pairExpires <= request.time + duration.value(15, 'm')));
+    }
+
+    // ---------- Parents ----------
+    match /users/{uid} {
+      allow get, delete: if isParent() && request.auth.uid == uid;
+      allow create, update: if isParent() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'locale', 'createdAt', 'deleteRequested'])
+        && (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 254))
+        && (!('locale' in request.resource.data) || (request.resource.data.locale is string && request.resource.data.locale.size() <= 10))
+        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp)
+        && (!('deleteRequested' in request.resource.data) || request.resource.data.deleteRequested is bool);
+    }
+
+    // ---------- Tablettes : tablets/{tabletId}, tabletId = uid anonyme de la tablette ----------
+    match /tablets/{tabletId} {
+      // La tablette lit son propre doc ; le parent proprietaire lit les siens.
+      allow get: if (isTablet() && request.auth.uid == tabletId)
+                 || (isParent() && resource.data.ownerUid == request.auth.uid);
+      // Pas de liste globale : le parent ne liste que ses tablettes (where ownerUid == uid + limit <= 20 obligatoires).
+      allow list: if isParent() && resource.data.ownerUid == request.auth.uid && request.query.limit <= 20;
+
+      // La tablette cree son doc (non appairee : ownerUid = null, pas de settings).
+      allow create: if isTablet() && request.auth.uid == tabletId
+        && request.resource.data.keys().hasOnly(['ownerUid', 'createdAt', 'lastSeen', 'appVersion', 'appCode',
+                                                 'androidApi', 'alerts', 'pairCode', 'pairExpires', 'applied'])
+        && request.resource.data.keys().hasAll(['ownerUid', 'createdAt', 'lastSeen', 'pairCode', 'pairExpires'])
+        && request.resource.data.ownerUid == null
+        && request.resource.data.createdAt == request.time
+        && tabletFieldsOk(request.resource.data, request.resource.data.keys());
+
+      allow update:
+        // 1) La tablette : uniquement ses champs d'etat ; le code d'appairage seulement tant qu'elle est libre.
+        if (isTablet() && request.auth.uid == tabletId
+            && changedKeys().hasOnly(['lastSeen', 'appVersion', 'appCode', 'androidApi', 'alerts', 'applied',
+                                      'pairCode', 'pairExpires'])
+            && (!changedKeys().hasAny(['pairCode', 'pairExpires']) || resource.data.ownerUid == null)
+            && tabletFieldsOk(request.resource.data, changedKeys()))
+        // 2a) Le parent DEMANDE l'appairage (il ne devient pas proprietaire) : code a 8 chiffres valide,
+        //     tablette libre, pas de demande recente (< 2 min), meme du meme compte. Une redemande avec le meme
+        //     code ne change que pendingAt : on exige donc les 4 champs dans le doc final et pendingAt modifie.
+        || (isParent() && resource.data.ownerUid == null
+            && request.auth.token.email is string
+            && changedKeys().hasOnly(['pendingOwnerUid', 'pendingOwnerEmail', 'pendingAt', 'claimCode', 'name'])
+            && request.resource.data.keys().hasAll(['pendingOwnerUid', 'pendingOwnerEmail', 'pendingAt', 'claimCode'])
+            && 'pendingAt' in changedKeys()
+            && request.resource.data.pendingOwnerUid == request.auth.uid
+            && request.resource.data.pendingOwnerEmail == request.auth.token.email
+            && request.resource.data.pendingAt == request.time
+            && request.resource.data.claimCode == resource.data.pairCode
+            && request.time < resource.data.pairExpires
+            && (!('pendingAt' in resource.data) || resource.data.pendingAt is timestamp
+                && request.time > resource.data.pendingAt + duration.value(2, 'm'))
+            && (!('name' in changedKeys()) || nameOk(request.resource.data.name)))
+        // 2b) La TABLETTE confirme (apres saisie du PIN local) : ownerUid = pendingOwnerUid, demande < 5 min.
+        //     Refus = la tablette supprime puis recree son doc (aucune regle necessaire).
+        || (isTablet() && request.auth.uid == tabletId && resource.data.ownerUid == null
+            && 'pendingOwnerUid' in resource.data && resource.data.pendingOwnerUid is string
+            && 'pendingAt' in resource.data && resource.data.pendingAt is timestamp
+            && request.time < resource.data.pendingAt + duration.value(5, 'm')
+            && changedKeys().hasOnly(['ownerUid', 'lastSeen'])
+            && changedKeys().hasAll(['ownerUid'])
+            && request.resource.data.ownerUid == resource.data.pendingOwnerUid
+            && tabletFieldsOk(request.resource.data, changedKeys()))
+        // 3) Le parent proprietaire : nom et reglages (rev croissant).
+        || (isParent() && resource.data.ownerUid == request.auth.uid
+            && request.resource.data.ownerUid == request.auth.uid
+            && changedKeys().hasOnly(['name', 'settings'])
+            && (!('name' in changedKeys()) || nameOk(request.resource.data.name))
+            && (!('settings' in changedKeys())
+                || (settingsOk(request.resource.data.settings) && revIncreases(resource.data, request.resource.data))));
+
+      // Desappairage : le proprietaire supprime le doc, ou la tablette se reinitialise elle-meme.
+      allow delete: if (isParent() && resource.data.ownerUid == request.auth.uid)
+                    || (isTablet() && request.auth.uid == tabletId);
+    }
+
+    // ---------- Codes d'appairage : pairingCodes/{code}, lecture par code exact uniquement ----------
+    match /pairingCodes/{code} {
+      // Le parent lit un code non expire (pas de liste) pour retrouver la tablette.
+      allow get: if isParent() && codeOk(code) && resource.data.expires > request.time;
+
+      // La tablette publie son code ; elle peut reprendre un code expire d'une autre tablette.
+      allow create: if isTablet() && codeOk(code)
+        && request.resource.data.keys().hasOnly(['tabletId', 'expires'])
+        && request.resource.data.tabletId == request.auth.uid
+        && request.resource.data.expires is timestamp
+        && request.resource.data.expires > request.time
+        && request.resource.data.expires <= request.time + duration.value(15, 'm');
+      allow update: if isTablet() && codeOk(code)
+        && (resource.data.tabletId == request.auth.uid || resource.data.expires < request.time)
+        && request.resource.data.keys().hasOnly(['tabletId', 'expires'])
+        && request.resource.data.tabletId == request.auth.uid
+        && request.resource.data.expires is timestamp
+        && request.resource.data.expires > request.time
+        && request.resource.data.expires <= request.time + duration.value(15, 'm');
+
+      // Nettoyage : la tablette, ou le parent qui a reclame cette tablette.
+      allow delete: if (isTablet() && resource.data.tabletId == request.auth.uid)
+        || (isParent() && get(/databases/$(database)/documents/tablets/$(resource.data.tabletId)).data.ownerUid == request.auth.uid);
+    }
+
+    // Tout le reste : refuse (aucune regle = acces interdit).
+  }
+}

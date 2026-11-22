@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme de l'ecran des reglages (clair) ; la variante sombre est dans values-night. -->
+    <style name="SettingsTheme" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar" />
+</resources>

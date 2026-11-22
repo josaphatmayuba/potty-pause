@@ -137,6 +137,10 @@ class ReminderService : Service() {
                     scene?.state?.progress = (1f - left.toFloat() / lockTotal).coerceIn(0f, 1f)
                     if (now - lastSpoken >= 40_000L) speak()
                 }
+            } else if (Prefs.paused(this@ReminderService)) {
+                // Pause demandee par le parent : rien ne s'affiche, la synchro continue ; on repart de zero a la reprise.
+                usedMs = 0
+                onSince = now
             } else if (!Prefs.inActiveHours(this@ReminderService)) {
                 // Hors des heures choisies : rien ne compte ; au retour dans la plage on repart de zero.
                 usedMs = 0
@@ -194,39 +198,13 @@ class ReminderService : Service() {
         override fun run() {
             Thread {
                 try {
-                    if (RemoteConfig.checkAndApply(this@ReminderService)) remoteUpdate()
+                    // Variante play : sync Firestore seulement ; la mise a jour distante n'existe que dans « direct ».
+                    if (RemoteConfig.sync(this@ReminderService)) Dist.remoteUpdate(this@ReminderService)
                 } catch (e: Throwable) {
                 }
             }.start()
             handler.postDelayed(this, 15L * 60_000L)
         }
-    }
-
-    // Mise a jour demandee a distance (thread de fond) : telecharge puis notifie « touche pour installer ».
-    private fun remoteUpdate() {
-        val (remote, url) = Updater.fetchLatest() ?: return
-        if (url == null || remote <= Updater.currentCode(this)) return
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(
-            NotificationChannel("update", getString(R.string.upd_channel), NotificationManager.IMPORTANCE_DEFAULT)
-        )
-        val flags = android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
-        val b = Notification.Builder(this, "update").setAutoCancel(true)
-        if (!packageManager.canRequestPackageInstalls()) {
-            val i = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            b.setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentTitle(getString(R.string.upd_perm_title))
-                .setContentText(getString(R.string.upd_perm_text))
-                .setContentIntent(android.app.PendingIntent.getActivity(this, 2, i, flags))
-        } else {
-            val f = Updater.downloadApk(this, url)
-            b.setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentTitle(getString(R.string.upd_ready_title))
-                .setContentText(getString(R.string.upd_ready_text))
-                .setContentIntent(android.app.PendingIntent.getActivity(this, 3, Updater.installIntent(this, f), flags))
-        }
-        nm.notify(4, b.build())
     }
 
     // Garde-fou : si la notification permanente a ete balayee (Android 14), on la remet.
@@ -248,43 +226,10 @@ class ReminderService : Service() {
     // Verif auto des mises a jour : au demarrage puis au plus 1 fois / 24 h ; echecs silencieux.
     private val updateCheck = object : Runnable {
         override fun run() {
-            val now = System.currentTimeMillis()
-            val last = Prefs.lastUpdateCheck(this@ReminderService)
-            if (now - last >= DAY_MS || last > now) {
-                Prefs.setLastUpdateCheck(this@ReminderService, now)
-                Thread {
-                    val r = Updater.fetchLatest() ?: return@Thread
-                    val (remote, url) = r
-                    if (url == null) return@Thread
-                    if (remote <= Updater.currentCode(this@ReminderService)) return@Thread
-                    handler.post { notifyUpdate(remote) }
-                }.start()
-            }
+            try { Dist.dailyUpdateCheck(this@ReminderService) } catch (e: Throwable) { }
             handler.postDelayed(this, 60L * 60_000L)
         }
     }
-
-    private fun notifyUpdate(ver: Long) {
-        val now = System.currentTimeMillis()
-        val at = Prefs.notifiedUpdateAt(this)
-        if (Prefs.notifiedUpdate(this) == ver && now - at in 0 until DAY_MS) return
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(
-            NotificationChannel("update", getString(R.string.upd_channel), NotificationManager.IMPORTANCE_DEFAULT)
-        )
-        nm.notify(3, Notification.Builder(this, "update")
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle(getString(R.string.upd_notif_title))
-            .setContentText(getString(R.string.upd_notif_text))
-            .setAutoCancel(true)
-            .setContentIntent(android.app.PendingIntent.getActivity(
-                this, 1, Intent(this, MainActivity::class.java),
-                android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT))
-            .build())
-        Prefs.setNotifiedUpdate(this, ver, now)
-    }
-
-    private companion object { const val DAY_MS = 24L * 60 * 60 * 1000 }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val nm = getSystemService(NotificationManager::class.java)
@@ -400,11 +345,10 @@ class ReminderService : Service() {
             visibility = View.GONE
             setOnClickListener {
                 val t = SystemClock.elapsedRealtime()
-                val pin = Prefs.pin(this@ReminderService)
                 if (t < failUntil) {
                     pinField.setText("")
                     pinField.hint = getString(R.string.retry_in, ((failUntil - t) / 1000 + 1).toInt())
-                } else if (pin.isNotEmpty() && pinField.text.toString() == pin) {
+                } else if (Prefs.checkPin(this@ReminderService, pinField.text.toString())) {
                     fails = 0
                     pinField.visibility = View.GONE
                     visibility = View.GONE

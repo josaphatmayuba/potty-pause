@@ -42,7 +42,69 @@ object Prefs {
         conf.setLocale(loc)
         return c.createConfigurationContext(conf)
     }
-    fun pin(c: Context) = p(c).getString("pin", "")!!
+    // ---- Code parent : jamais stocke en clair (PBKDF2 + sel). L'ancien code en clair est migre a la volee. ----
+    // Nouveaux codes : 40 000 itérations (anciens hash conservés grâce à pinIter) ; la vérification se fait hors thread principal.
+    private const val PIN_ITER = 40_000
+
+    private fun pbkdf2(pin: String, salt: ByteArray, iter: Int): ByteArray {
+        val spec = javax.crypto.spec.PBEKeySpec(pin.toCharArray(), salt, iter, 256)
+        return javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+    }
+
+    private fun b64(b: ByteArray) = android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP)
+    private fun unb64(s: String) = android.util.Base64.decode(s, android.util.Base64.NO_WRAP)
+
+    fun setPin(c: Context, pin: String) {
+        val salt = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
+        p(c).edit()
+            .putString("pinSalt", b64(salt))
+            .putString("pinHash", b64(pbkdf2(pin, salt, PIN_ITER)))
+            .putInt("pinIter", PIN_ITER)
+            .remove("pin")
+            .apply()
+    }
+
+    private fun migratePin(c: Context) {
+        val old = p(c).getString("pin", "") ?: ""
+        if (old.isNotEmpty() && (p(c).getString("pinHash", "") ?: "").isEmpty()) setPin(c, old)
+    }
+
+    fun hasPin(c: Context): Boolean {
+        migratePin(c)
+        return (p(c).getString("pinHash", "") ?: "").isNotEmpty()
+    }
+
+    fun checkPin(c: Context, input: String): Boolean {
+        migratePin(c)
+        val h = p(c).getString("pinHash", "") ?: ""
+        val s = p(c).getString("pinSalt", "") ?: ""
+        if (h.isEmpty() || s.isEmpty() || input.isEmpty()) return false
+        return try {
+            java.security.MessageDigest.isEqual(unb64(h), pbkdf2(input, unb64(s), p(c).getInt("pinIter", PIN_ITER)))
+        } catch (e: Throwable) {
+            false
+        }
+    }
+
+    // ---- Appairage avec le compte parent (Firestore) ----
+    fun tabletUid(c: Context) = p(c).getString("tabletUid", "")!!
+    fun paired(c: Context) = p(c).getBoolean("paired", false)
+    fun pairCode(c: Context) = p(c).getString("pairCode", "")!!
+    fun pairExpires(c: Context) = p(c).getLong("pairExpires", 0L)
+    fun setPairInfo(c: Context, uid: String, paired: Boolean, code: String, expires: Long) =
+        p(c).edit().putString("tabletUid", uid).putBoolean("paired", paired)
+            .putString("pairCode", code).putLong("pairExpires", expires).apply()
+
+    // Demande d'appairage d'un compte parent, en attente de confirmation sur la tablette (valable 5 min).
+    fun pendingUid(c: Context) = p(c).getString("pendUid", "")!!
+    fun pendingEmail(c: Context) = p(c).getString("pendEmail", "")!!
+    fun pendingAt(c: Context) = p(c).getLong("pendAt", 0L)
+    fun setPending(c: Context, uid: String, email: String, at: Long) =
+        p(c).edit().putString("pendUid", uid).putString("pendEmail", email).putLong("pendAt", at).apply()
+    fun clearPending(c: Context) = setPending(c, "", "", 0L)
+
+    fun setMessage(c: Context, v: String) = p(c).edit().putString("message", v).apply()
+
     fun enabled(c: Context) = p(c).getBoolean("enabled", false)
 
     fun childName(c: Context) = p(c).getString("childName", "")!!
@@ -55,14 +117,15 @@ object Prefs {
         else { p(c).edit().putInt("diamonds", n).apply(); n }
     }
 
+    // pin vide = on garde le code actuel.
     fun save(c: Context, interval: Int, lock: Int, message: String, pin: String, name: String) {
         p(c).edit()
             .putInt("interval", interval)
             .putInt("lock", lock)
             .putString("message", message)
-            .putString("pin", pin)
             .putString("childName", name)
             .apply()
+        if (pin.isNotEmpty()) setPin(c, pin)
     }
 
     // Fin du blocage en heure murale : survit a un kill du service ou a un reboot (0 = pas de blocage).
@@ -151,4 +214,25 @@ object Prefs {
     fun setBlocsAnim(c: Context, v: String) = p(c).edit().putString("blocsAnim", v).apply()
     fun setImageUri(c: Context, v: String?) = p(c).edit().putString("imageUri", v).apply()
     fun setLastTheme(c: Context, v: String) = p(c).edit().putString("lastTheme", v).apply()
+
+    // Role de cet appareil : "tablet" (enfant), "parent" ou "" (pas encore choisi).
+    // Une installation existante (code parent defini, rappel demarre ou reglages deja enregistres) reste en "tablet".
+    fun role(c: Context): String {
+        val r = p(c).getString("role", "") ?: ""
+        if (r.isNotEmpty()) return r
+        if (hasPin(c) || enabled(c) || p(c).contains("interval") || p(c).contains("tabletUid")) {
+            p(c).edit().putString("role", "tablet").apply()
+            return "tablet"
+        }
+        return ""
+    }
+    fun setRole(c: Context, v: String) = p(c).edit().putString("role", v).apply()
+
+    // Pause demandee par le parent a distance : le service reste vivant (synchro 15 min continue) mais n'affiche rien.
+    fun paused(c: Context) = p(c).getBoolean("paused", false)
+    fun setPaused(c: Context, v: Boolean) = p(c).edit().putBoolean("paused", v).apply()
+
+    // Ecart (ms) entre l'heure du serveur et celle de la tablette ; sert aux expirations de codes et de demandes.
+    fun clockOffset(c: Context) = p(c).getLong("clockOffset", 0L)
+    fun setClockOffset(c: Context, v: Long) = p(c).edit().putLong("clockOffset", v).apply()
 }

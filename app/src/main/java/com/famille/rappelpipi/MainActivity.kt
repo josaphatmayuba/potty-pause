@@ -32,21 +32,12 @@ class MainActivity : Activity() {
     private var onImageChanged: (() -> Unit)? = null
     private var refreshAll: (() -> Unit)? = null
 
-    private val themeIds = arrayOf(
-        "blocs", "geant", "bd", "sablier", "feu", "nuit", "ballon", "carte", "porte",
-        "bouton", "aqua", "dino", "fusee", "train", "goutte", "photo", "hasard"
-    )
-    private val animIds = arrayOf("hasard", "0", "1", "2", "3", "4", "5", "6")
+    private val themeIds = Choices.themeIds
+    private val animIds = Choices.animIds
 
-    private fun themeName(id: String): String {
-        val rid = resources.getIdentifier("theme_$id", "string", packageName)
-        return if (rid != 0) getString(rid) else id
-    }
+    private fun themeName(id: String): String = Choices.themeName(this, id)
 
-    private fun animName(id: String): String {
-        val rid = resources.getIdentifier("anim_$id", "string", packageName)
-        return if (rid != 0) getString(rid) else id
-    }
+    private fun animName(id: String): String = Choices.animName(this, id)
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(Prefs.localized(newBase))
@@ -73,22 +64,137 @@ class MainActivity : Activity() {
         refreshImageStatus()
     }
 
-    override fun onResume() {
-        super.onResume()
-        refreshAll?.invoke()
+    private val ui = android.os.Handler(android.os.Looper.getMainLooper())
+    private var pairRefresh: (() -> Unit)? = null
+    private var pendingDialog: AlertDialog? = null
+    private val pairBusy = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    // Retour sur le thread principal seulement si l'ecran existe encore (evite les dialogues sur une activite detruite).
+    private fun safeUi(block: () -> Unit) = runOnUiThread { if (!isFinishing && !isDestroyed) block() }
+
+    // PBKDF2 est lent : verification du code parent hors thread principal.
+    private fun verifyPin(input: String, ok: () -> Unit, bad: () -> Unit) {
+        Thread {
+            val r = try { Prefs.checkPin(this, input) } catch (e: Throwable) { false }
+            safeUi { if (r) ok() else bad() }
+        }.start()
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val pin = Prefs.pin(this)
-        if (pin.isEmpty()) {
-            buildUi()
-        } else {
-            askPin(pin)
+    private val pairPoll = object : Runnable {
+        override fun run() {
+            // Un seul passage a la fois : pas de cumul si le reseau est lent.
+            if (!Prefs.paired(this@MainActivity) && pairBusy.compareAndSet(false, true)) {
+                Thread {
+                    try { RemoteConfig.poll(this@MainActivity) } catch (e: Throwable) { }
+                    finally { pairBusy.set(false) }
+                    safeUi { pairRefresh?.invoke(); showPendingIfAny() }
+                }.start()
+            }
+            ui.postDelayed(this, 10_000L)
         }
     }
 
-    private fun askPin(pin: String) {
+    override fun onResume() {
+        super.onResume()
+        refreshAll?.invoke()
+        ui.removeCallbacks(pairPoll)
+        if (pairRefresh != null) ui.postDelayed(pairPoll, 10_000L)   // detecte une demande d'appairage pendant que les reglages sont ouverts
+    }
+
+    override fun onPause() {
+        ui.removeCallbacks(pairPoll)
+        super.onPause()
+    }
+
+    // Demande le code parent local (jamais envoye au cloud) puis execute l'action ; pas de code defini = action directe.
+    private fun askPinThen(message: String, action: () -> Unit) {
+        if (!Prefs.hasPin(this)) { action(); return }
+        val input = EditText(this).apply {
+            hint = getString(R.string.pin_hint)
+            minHeight = dp(48)
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        }
+        val d = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.pin_title))
+            .setMessage(message)
+            .setView(input)
+            .setPositiveButton(getString(R.string.ok), null)
+            .setNegativeButton(getString(R.string.cancel), null)
+            .create()
+        d.show()
+        d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener { btn ->
+            btn.isEnabled = false
+            verifyPin(input.text.toString(),
+                { d.dismiss(); action() },
+                { btn.isEnabled = true; input.setText(""); input.error = getString(R.string.wrong_code) })
+        }
+    }
+
+    // « Le compte <email> demande a gerer cette tablette » : on redemande le code parent meme si l'ecran est deja ouvert.
+    private fun showPendingIfAny() {
+        val email = Prefs.pendingEmail(this)
+        if (email.isEmpty() || Prefs.paired(this) || isFinishing || isDestroyed) return
+        if (RemoteConfig.nowMs(this) - Prefs.pendingAt(this) >= 5L * 60_000L) return
+        if (pendingDialog?.isShowing == true) return
+        val hasPin = Prefs.hasPin(this)
+        val input = EditText(this).apply {
+            hint = getString(R.string.pin_hint)
+            minHeight = dp(48)
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        }
+        fun decline() {
+            Thread {
+                try { RemoteConfig.resetPairing(this) } catch (e: Throwable) { }
+                safeUi { pairRefresh?.invoke() }
+            }.start()
+        }
+        val b = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.pend_title))
+            .setMessage(getString(R.string.pend_msg, email) + if (hasPin) "" else "\n\n" + getString(R.string.pend_need_pin))
+            .setCancelable(false)
+            .setNegativeButton(getString(R.string.pend_refuse)) { _, _ -> decline() }
+        if (hasPin) b.setView(input).setPositiveButton(getString(R.string.pend_confirm), null)
+        val d = b.create()
+        d.show()
+        pendingDialog = d
+        var tries = 0
+        d.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener { btn ->
+            btn.isEnabled = false
+            verifyPin(input.text.toString(), {
+                d.dismiss()
+                Thread {
+                    val ok = try { RemoteConfig.confirmPairing(this) } catch (e: Throwable) { false }
+                    safeUi {
+                        Toast.makeText(this, getString(if (ok) R.string.pend_done else R.string.pend_failed), Toast.LENGTH_LONG).show()
+                        pairRefresh?.invoke()
+                    }
+                }.start()
+            }, {
+                btn.isEnabled = true
+                tries++
+                input.setText("")
+                if (tries >= 3) { d.dismiss(); decline() }   // 3 codes faux = demande refusee
+                else input.error = getString(R.string.wrong_code)
+            })
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.SettingsTheme)
+        super.onCreate(savedInstanceState)
+        // Role : parent = on ouvre le mode parent ; pas encore choisi = ecran de choix (installations existantes = tablette).
+        when (Prefs.role(this)) {
+            "parent" -> { startActivity(Intent(this, ParentActivity::class.java)); finish(); return }
+            "" -> { RoleChooser.show(this); return }
+        }
+        if (!Prefs.hasPin(this)) {
+            buildUi()
+        } else {
+            askPin()
+        }
+    }
+
+    private fun askPin() {
         val input = EditText(this).apply {
             hint = getString(R.string.pin_hint)
             minHeight = dp(48)
@@ -99,7 +205,7 @@ class MainActivity : Activity() {
             .setView(input)
             .setCancelable(false)
             .setPositiveButton(getString(R.string.ok)) { _, _ ->
-                if (input.text.toString() == pin) buildUi() else finish()
+                verifyPin(input.text.toString(), { buildUi() }, { finish() })
             }
             .setNegativeButton(getString(R.string.cancel)) { _, _ -> finish() }
             .show()
@@ -115,55 +221,45 @@ class MainActivity : Activity() {
     }
 
     private fun buildUi() {
-        val tablet = resources.configuration.smallestScreenWidthDp >= 600
-        val pad = dp(if (tablet) 24 else 16)
-        val maxW = minOf(dp(560), resources.displayMetrics.widthPixels)
-        val col = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
-        }
-        val grey = Color.parseColor("#5F6368")
+        val kit = UiKit(this)
+        val col = kit.column()
+        val ctrl = UiKit.CONTROL_H
+        fun card(title: String) = kit.card(title).also { kit.add(col, it, UiKit.S16) }
 
-        fun section(t: String) = TextView(this).apply {
-            text = t; textSize = 18f; setTypeface(null, Typeface.BOLD)
-            setPadding(0, dp(24), 0, dp(4))
-        }
-        fun label(t: String) = TextView(this).apply { text = t; setPadding(0, dp(12), 0, 0) }
-        fun help(t: String) = TextView(this).apply { text = t; textSize = 13f; setTextColor(grey) }
-        fun btn(t: String) = Button(this).apply { text = t; minHeight = dp(48) }
-
-        val interval = field(getString(R.string.lbl_interval), Prefs.intervalMin(this).toString(), true)
-        val lock = field(getString(R.string.lbl_lock), Prefs.lockMin(this).toString(), true)
-        val message = field(getString(R.string.lbl_message), Prefs.shownMessage(this), false).apply {
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-        }
-        val pin = field(getString(R.string.lbl_pin), Prefs.pin(this), true).apply {
+        val interval = kit.field(getString(R.string.lbl_interval), Prefs.intervalMin(this).toString(), true)
+        val lock = kit.field(getString(R.string.lbl_lock), Prefs.lockMin(this).toString(), true)
+        val message = kit.field(getString(R.string.lbl_message), Prefs.shownMessage(this), false, multi = true)
+        val pin = kit.field("", "", true).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            typeface = Typeface.DEFAULT   // le mode mot de passe force la police monospace
         }
-        val childName = field(getString(R.string.lbl_child_name), Prefs.childName(this), false)
+        val childName = kit.field(getString(R.string.lbl_child_name), Prefs.childName(this), false)
 
-        col.addView(TextView(this).apply { text = getString(R.string.title_settings); textSize = 26f; setTypeface(null, Typeface.BOLD) })
+        col.addView(kit.title(getString(R.string.title_settings)))
 
-        // 1. Etat
-        col.addView(section(getString(R.string.sec_status)))
-        val statusRem = TextView(this).apply { textSize = 16f; setTypeface(null, Typeface.BOLD) }
-        val statusBatt = TextView(this).apply { textSize = 16f; setTypeface(null, Typeface.BOLD) }
-        col.addView(statusRem); col.addView(statusBatt)
-        val startBtn = btn("")
-        val stopBtn = btn(getString(R.string.btn_stop))
-        val battBtn = btn(getString(R.string.btn_battery)).apply {
+        // 1. Rappel : etat, minutes, duree, heures
+        val cRem = card(getString(R.string.sec_reminder))
+        val statusRem = kit.status("")
+        val statusBatt = kit.status("")
+        kit.add(cRem, statusRem, UiKit.S12); kit.add(cRem, statusBatt, UiKit.S8)
+        val startBtn = kit.button("", UiKit.Kind.PRIMARY)
+        val stopBtn = kit.button(getString(R.string.btn_stop), UiKit.Kind.DANGER)
+        val battBtn = kit.button(getString(R.string.btn_battery)).apply {
             setOnClickListener { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
         }
-        col.addView(startBtn); col.addView(stopBtn); col.addView(battBtn)
+        kit.add(cRem, battBtn, UiKit.S12, ctrl)
+        kit.add(cRem, stopBtn, UiKit.S8, ctrl)
 
         fun refreshStatus() {
             val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
             val battOk = pm.isIgnoringBatteryOptimizations(packageName)
             val on = Prefs.enabled(this)
-            val green = Color.parseColor("#2E7D32"); val orange = Color.parseColor("#E65100")
+            val green = kit.c.ok; val orange = kit.c.warn
             val outside = on && !Prefs.inActiveHours(this)
+            val paused = on && Prefs.paused(this)
             statusRem.text = getString(R.string.status_reminder,
-                if (outside) getString(R.string.status_outside_hours)
+                if (paused) getString(R.string.status_paused)
+                else if (outside) getString(R.string.status_outside_hours)
                 else getString(if (on) R.string.status_active else R.string.status_stopped))
             statusRem.setTextColor(if (on) green else orange)
             statusBatt.text = getString(R.string.status_battery, getString(if (battOk) R.string.battery_ok else R.string.battery_todo))
@@ -173,20 +269,16 @@ class MainActivity : Activity() {
             battBtn.visibility = if (battOk) View.GONE else View.VISIBLE
         }
 
-        // 2. Temps d'ecran
-        col.addView(section(getString(R.string.sec_screen_time)))
-        col.addView(label(getString(R.string.lbl_interval))); col.addView(interval)
-        col.addView(label(getString(R.string.lbl_lock))); col.addView(lock)
+        kit.add(cRem, kit.label(getString(R.string.lbl_interval)), UiKit.S24)
+        kit.add(cRem, interval, UiKit.S4, ctrl)
+        kit.add(cRem, kit.label(getString(R.string.lbl_lock)), UiKit.S12)
+        kit.add(cRem, lock, UiKit.S4, ctrl)
         var fromMin = Prefs.activeFrom(this)
         var toMin = Prefs.activeTo(this)
         fun hm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
-        val limitChk = android.widget.CheckBox(this).apply {
-            text = getString(R.string.chk_limit_hours)
-            isChecked = Prefs.activeLimited(this@MainActivity)
-            minHeight = dp(48)
-        }
-        val fromBtn = btn("")
-        val toBtn = btn("")
+        val limitChk = kit.checkbox(getString(R.string.chk_limit_hours), Prefs.activeLimited(this@MainActivity))
+        val fromBtn = kit.button("")
+        val toBtn = kit.button("")
         fun refreshHours() {
             fromBtn.text = getString(R.string.lbl_from) + " " + hm(fromMin)
             toBtn.text = getString(R.string.lbl_to) + " " + hm(toMin)
@@ -201,54 +293,24 @@ class MainActivity : Activity() {
         }
         limitChk.setOnCheckedChangeListener { _, _ -> refreshHours() }
         refreshHours()
-        col.addView(limitChk); col.addView(fromBtn); col.addView(toBtn)
-        col.addView(help(getString(R.string.help_hours)))
+        kit.add(cRem, limitChk, UiKit.S12, ctrl)
+        kit.add(cRem, kit.row(fromBtn, toBtn), UiKit.S8, ctrl)
+        kit.add(cRem, kit.help(getString(R.string.help_hours)), UiKit.S8)
 
-        // 3. Message pour l'enfant
-        col.addView(section(getString(R.string.sec_message)))
-        col.addView(label(getString(R.string.lbl_child_name))); col.addView(childName)
-        col.addView(help(getString(R.string.help_child_name)))
-        col.addView(label(getString(R.string.lbl_message))); col.addView(message)
-
-        // 4. Apparence
-        col.addView(section(getString(R.string.sec_appearance)))
-        val themeSpin = Spinner(this).apply {
-            minimumHeight = dp(48)
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, themeIds.map { themeName(it) })
-            setSelection(themeIds.indexOf(Prefs.theme(this@MainActivity)).coerceAtLeast(0))
-        }
-        val animSpin = Spinner(this).apply {
-            minimumHeight = dp(48)
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, animIds.map { animName(it) })
-            setSelection(animIds.indexOf(Prefs.blocsAnim(this@MainActivity)).coerceAtLeast(0))
-        }
+        // 2. Apparence : theme, animation, personnage, image
+        val cApp = card(getString(R.string.sec_appearance))
+        val themeSpin = kit.spinner(themeIds.map { themeName(it) }, themeIds.indexOf(Prefs.theme(this@MainActivity)))
+        val animSpin = kit.spinner(animIds.map { animName(it) }, animIds.indexOf(Prefs.blocsAnim(this@MainActivity)))
         // "" = separateur non selectionnable (on garde alors la valeur precedente).
-        val charIds = ArrayList<String>().apply {
-            add("hasard"); add("fam:mc"); add("fam:sp"); add("")
-            for (i in 0..17) add("mc:$i")
-            for (i in 1..12) add("sp:$i")
-        }
-        val charLabels = ArrayList<String>().apply {
-            add(getString(R.string.char_random)); add(getString(R.string.char_random_mc)); add(getString(R.string.char_random_sp))
-            add(getString(R.string.char_sep))
-            resources.getStringArray(R.array.char_names).forEach { add(getString(R.string.char_prefix_mc) + " " + it) }
-            resources.getStringArray(R.array.sprunki_names).forEach { add(getString(R.string.char_prefix_sp) + " " + it) }
-        }
-        val charSpin = Spinner(this).apply {
-            minimumHeight = dp(48)
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
-                charLabels)
-            setSelection(charIds.indexOf(Prefs.character(this@MainActivity)).coerceAtLeast(0))
-        }
-        val charLabel = label(getString(R.string.lbl_character))
-        val animLabel = label(getString(R.string.lbl_anim))
-        val photoWarn = TextView(this).apply {
-            text = getString(R.string.warn_photo_no_image)
-            textSize = 13f; setTextColor(Color.parseColor("#E65100")); setPadding(0, dp(8), 0, 0)
-        }
-        val imgStatus = TextView(this).apply { setPadding(0, dp(4), 0, 0) }
+        val charIds = Choices.charIds()
+        val charLabels = Choices.charLabels(this)
+        val charSpin = kit.spinner(charLabels, charIds.indexOf(Prefs.character(this@MainActivity)))
+        val charLabel = kit.label(getString(R.string.lbl_character))
+        val animLabel = kit.label(getString(R.string.lbl_anim))
+        val photoWarn = kit.help(getString(R.string.warn_photo_no_image)).apply { setTextColor(kit.c.warn) }
+        val imgStatus = kit.help("")
         imageStatus = imgStatus
-        val removeBtn = btn(getString(R.string.btn_remove_image)).apply {
+        val removeBtn = kit.button(getString(R.string.btn_remove_image)).apply {
             setOnClickListener { Prefs.setImageUri(this@MainActivity, null); refreshImageStatus() }
         }
         fun refreshAppearance() {
@@ -267,10 +329,13 @@ class MainActivity : Activity() {
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) = refreshAppearance()
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
-        col.addView(label(getString(R.string.lbl_theme))); col.addView(themeSpin)
-        col.addView(animLabel); col.addView(animSpin)
-        col.addView(charLabel); col.addView(charSpin)
-        col.addView(btn(getString(R.string.btn_pick_image)).apply {
+        kit.add(cApp, kit.label(getString(R.string.lbl_theme)), UiKit.S12)
+        kit.add(cApp, themeSpin, UiKit.S4, ctrl)
+        kit.add(cApp, animLabel, UiKit.S12)
+        kit.add(cApp, animSpin, UiKit.S4, ctrl)
+        kit.add(cApp, charLabel, UiKit.S12)
+        kit.add(cApp, charSpin, UiKit.S4, ctrl)
+        kit.add(cApp, kit.button(getString(R.string.btn_pick_image)).apply {
             setOnClickListener {
                 val pick = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
@@ -280,21 +345,23 @@ class MainActivity : Activity() {
                 runCatching { startActivityForResult(pick, pickImage) }
                     .onFailure { Toast.makeText(this@MainActivity, getString(R.string.toast_no_picker), Toast.LENGTH_LONG).show() }
             }
-        })
-        col.addView(removeBtn)
-        col.addView(imgStatus)
-        col.addView(photoWarn)
+        }, UiKit.S16, ctrl)
+        kit.add(cApp, removeBtn, UiKit.S8, ctrl)
+        kit.add(cApp, imgStatus, UiKit.S8)
+        kit.add(cApp, photoWarn, UiKit.S4)
         refreshImageStatus()
 
-        // 5. Langue
-        col.addView(section(getString(R.string.sec_language)))
+        // 3. Message et langue
+        val cMsg = card(getString(R.string.sec_message_lang))
+        kit.add(cMsg, kit.label(getString(R.string.lbl_child_name)), UiKit.S12)
+        kit.add(cMsg, childName, UiKit.S4, ctrl)
+        kit.add(cMsg, kit.help(getString(R.string.help_child_name)), UiKit.S8)
+        kit.add(cMsg, kit.label(getString(R.string.lbl_message)), UiKit.S16)
+        kit.add(cMsg, message, UiKit.S4)
         val langIds = arrayOf("", "fr", "en")
-        val langSpin = Spinner(this).apply {
-            minimumHeight = dp(48)
-            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
-                listOf(getString(R.string.lang_phone), getString(R.string.lang_fr), getString(R.string.lang_en)))
-            setSelection(langIds.indexOf(Prefs.language(this@MainActivity)).coerceAtLeast(0))
-        }
+        val langSpin = kit.spinner(
+            listOf(getString(R.string.lang_phone), getString(R.string.lang_fr), getString(R.string.lang_en)),
+            langIds.indexOf(Prefs.language(this@MainActivity)))
         langSpin.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
                 val chosen = langIds[pos.coerceIn(0, langIds.size - 1)]
@@ -309,62 +376,79 @@ class MainActivity : Activity() {
             }
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
-        col.addView(langSpin)
+        kit.add(cMsg, kit.label(getString(R.string.sec_language)), UiKit.S16)
+        kit.add(cMsg, langSpin, UiKit.S4, ctrl)
 
-        // 6. Securite
-        col.addView(section(getString(R.string.sec_security)))
-        col.addView(label(getString(R.string.lbl_pin))); col.addView(pin)
+        // 4. Telecommande : appairage de cette tablette avec le compte parent
+        val cRemote = card(getString(R.string.sec_remote))
+        val pairStatus = kit.status("")
+        val clockWarn = kit.help(getString(R.string.pair_clock_off)).apply { setTextColor(kit.c.warn) }
+        val pairBtn = kit.button(getString(R.string.btn_pair_refresh))
+        val unpairBtn = kit.button(getString(R.string.btn_unpair), UiKit.Kind.DANGER)
+        fun refreshPair() {
+            val code = Prefs.pairCode(this)
+            val live = code.length == 8 && Prefs.pairExpires(this) > RemoteConfig.nowMs(this)
+            val paired = Prefs.paired(this)
+            pairStatus.text = when {
+                paired -> getString(R.string.pair_paired)
+                live -> getString(R.string.pair_code_fmt, code.substring(0, 4) + " " + code.substring(4))
+                else -> getString(R.string.pair_none)
+            }
+            pairStatus.textSize = if (live && !paired) UiKit.T_TITLE else UiKit.T_BODY
+            clockWarn.visibility = if (Math.abs(Prefs.clockOffset(this)) > 120_000L) View.VISIBLE else View.GONE
+            pairBtn.visibility = if (paired) View.GONE else View.VISIBLE
+            unpairBtn.visibility = if (paired) View.VISIBLE else View.GONE
+        }
+        pairBtn.setOnClickListener {
+            pairBtn.isEnabled = false
+            Thread {
+                try { RemoteConfig.sync(this) } catch (e: Throwable) { }
+                safeUi { pairBtn.isEnabled = true; refreshPair(); showPendingIfAny() }
+            }.start()
+        }
+        // Desappairage depuis la tablette : derriere le code parent.
+        unpairBtn.setOnClickListener {
+            askPinThen(getString(R.string.unpair_confirm)) {
+                unpairBtn.isEnabled = false
+                Thread {
+                    try { RemoteConfig.resetPairing(this) } catch (e: Throwable) { }
+                    safeUi { unpairBtn.isEnabled = true; refreshPair() }
+                }.start()
+            }
+        }
+        kit.add(cRemote, pairStatus, UiKit.S12)
+        kit.add(cRemote, pairBtn, UiKit.S12, ctrl)
+        kit.add(cRemote, unpairBtn, UiKit.S12, ctrl)
+        kit.add(cRemote, kit.help(getString(R.string.help_pair)), UiKit.S8)
+        kit.add(cRemote, clockWarn, UiKit.S8)
+        pairRefresh = { refreshPair() }
 
-        val dpm = getSystemService(DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
-        val admin = android.content.ComponentName(this, AdminReceiver::class.java)
-        val alias = android.content.ComponentName(this, "$packageName.LauncherAlias")
-        val protStatus = TextView(this).apply { setPadding(0, dp(16), 0, 0) }
-        val adminBtn = btn("")
-        val iconStatus = TextView(this).apply { setPadding(0, dp(16), 0, 0) }
-        val iconBtn = btn("")
-        fun iconHidden() = packageManager.getComponentEnabledSetting(alias) ==
-            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-        fun refreshProt() {
-            val on = dpm.isAdminActive(admin)
-            val hidden = iconHidden()
-            adminBtn.text = getString(if (on) R.string.btn_protection_off else R.string.btn_protection_on)
-            iconBtn.text = getString(if (hidden) R.string.btn_icon_show else R.string.btn_icon_hide)
-            protStatus.text = getString(R.string.protection_status, getString(if (on) R.string.on else R.string.off))
-            iconStatus.text = getString(R.string.icon_status, getString(if (hidden) R.string.icon_hidden else R.string.icon_visible))
-        }
-        adminBtn.setOnClickListener {
-            if (dpm.isAdminActive(admin)) {
-                dpm.removeActiveAdmin(admin)
-            } else {
-                startActivity(Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-                    putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
-                    putExtra(android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION, getString(R.string.admin_explanation))
-                })
+        // 5. Securite : code parent, protection, icone
+        val cSec = card(getString(R.string.sec_security))
+        kit.add(cSec, kit.label(getString(R.string.lbl_pin)), UiKit.S12)
+        kit.add(cSec, pin, UiKit.S4, ctrl)
+        kit.add(cSec, kit.help(getString(R.string.pin_keep_hint)), UiKit.S8)
+        // Changer de role (telephone du parent) : derriere le code parent.
+        kit.add(cSec, kit.button(getString(R.string.btn_role_parent)).apply {
+            setOnClickListener {
+                askPinThen(getString(R.string.role_switch_confirm)) {
+                    RoleChooser.switchTo(this@MainActivity, "parent")
+                }
             }
-            adminBtn.postDelayed({ refreshProt() }, 600)
-        }
-        iconBtn.setOnClickListener {
-            if (!iconHidden() && !Prefs.enabled(this)) {
-                Toast.makeText(this, getString(R.string.toast_start_first), Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-            packageManager.setComponentEnabledSetting(
-                alias,
-                if (iconHidden()) android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                else android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                android.content.pm.PackageManager.DONT_KILL_APP
-            )
-            refreshProt()
-        }
-        col.addView(protStatus); col.addView(adminBtn)
-        col.addView(iconStatus); col.addView(iconBtn)
-        col.addView(help(getString(R.string.help_icon)))
-        col.addView(btn(getString(R.string.btn_check_update)).apply {
-            setOnClickListener { Updater.check(this@MainActivity, true) }
-        })
+        }, UiKit.S16, ctrl)
+        kit.add(cSec, kit.help(getString(R.string.help_role_parent)), UiKit.S8)
+
+        // 6. Mises a jour / a propos
+        val cUpd = card(getString(if (Dist.IS_DIRECT) R.string.sec_update else R.string.sec_about))
+        val refreshProt = Dist.addProtectionSection(this, cSec, cUpd, kit)
         val versionName = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: ""
-        col.addView(help(getString(R.string.version_fmt, versionName)).apply { setPadding(0, dp(8), 0, 0) })
-        Updater.check(this, false)
+        kit.add(cUpd, kit.help(getString(R.string.version_fmt, versionName)), UiKit.S12)
+        Dist.checkOnOpen(this)
+        // Un code d'appairage a jour s'affiche a l'ouverture (hors ligne : on garde l'ancien, sans erreur).
+        Thread {
+            try { RemoteConfig.sync(this) } catch (e: Throwable) { }
+            safeUi { refreshPair(); showPendingIfAny() }
+        }.start()
 
         // Demarrer / enregistrer
         startBtn.setOnClickListener {
@@ -375,7 +459,8 @@ class MainActivity : Activity() {
             var bad: EditText? = null
             if (i < 1) { interval.error = getString(R.string.err_minutes); bad = bad ?: interval }
             if (l < 1) { lock.error = getString(R.string.err_minutes); bad = bad ?: lock }
-            if (p.length < 4) { pin.error = getString(R.string.err_pin); bad = bad ?: pin }
+            // Champ vide = on garde le code actuel (le code n'est plus relisible : il est stocke chiffre).
+            if (!(p.isEmpty() && Prefs.hasPin(this)) && p.length < 4) { pin.error = getString(R.string.err_pin); bad = bad ?: pin }
             if (bad != null) { bad.requestFocus(); return@setOnClickListener }
             val msgText = if (Prefs.isDefaultMessage(this@MainActivity, message.text.toString())) "" else message.text.toString()
             Prefs.save(this@MainActivity, i, l, msgText, p, childName.text.toString().trim())
@@ -394,20 +479,21 @@ class MainActivity : Activity() {
             stopService(Intent(this@MainActivity, ReminderService::class.java))
             startForegroundService(Intent(this@MainActivity, ReminderService::class.java))
             Prefs.setEnabled(this@MainActivity, true)
+            Prefs.setPaused(this@MainActivity, false)   // un demarrage local leve la pause distante
             refreshStatus()
         }
         stopBtn.setOnClickListener {
             stopService(Intent(this@MainActivity, ReminderService::class.java))
             Prefs.setEnabled(this@MainActivity, false)
+            Prefs.setPaused(this@MainActivity, false)
             refreshStatus()
         }
 
-        refreshAll = { refreshStatus(); refreshProt(); refreshAppearance() }
+        refreshAll = { refreshStatus(); refreshProt(); refreshPair(); refreshAppearance() }
         refreshAll?.invoke()
+        ui.removeCallbacks(pairPoll)
+        ui.postDelayed(pairPoll, 10_000L)
 
-        val frame = FrameLayout(this).apply {
-            addView(col, FrameLayout.LayoutParams(maxW, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL))
-        }
-        setContentView(ScrollView(this).apply { addView(frame) })
+        kit.screen(this, col, startBtn)
     }
 }
