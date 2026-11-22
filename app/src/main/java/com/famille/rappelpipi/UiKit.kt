@@ -24,6 +24,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 /**
  * Kit d'interface unique (reglages + futur mode parent). Toutes les valeurs sont definies ICI, une seule fois :
@@ -222,6 +225,7 @@ class UiKit(val ctx: Context) {
             setBackgroundColor(c.bg)
             addView(scroll, LinearLayout.LayoutParams(MATCH, 0, 1f))
         }
+        var barRef: LinearLayout? = null
         if (bottom != null) {
             val bar = LinearLayout(ctx).apply {
                 orientation = LinearLayout.VERTICAL
@@ -234,8 +238,25 @@ class UiKit(val ctx: Context) {
                 addView(inner, LinearLayout.LayoutParams(maxW, WRAP).apply { gravity = Gravity.CENTER_HORIZONTAL })
             }
             root.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
+            barRef = bar
+        }
+        // Android 15+ (targetSdk 35+) : l'ecran passe sous les barres systeme. On rend les marges
+        // (barre d'etat, de navigation, decoupe, clavier) : haut/cotes sur la racine, bas dans la barre fixe.
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val sys = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val bottomInset = maxOf(sys.bottom, ime.bottom)
+            v.setPadding(sys.left, sys.top, sys.right, if (barRef == null) bottomInset else 0)
+            barRef?.setPadding(0, 0, 0, bottomInset)
+            insets
         }
         a.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         a.setContentView(root)
+        val night = (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        WindowInsetsControllerCompat(a.window, root).apply {
+            isAppearanceLightStatusBars = !night
+            isAppearanceLightNavigationBars = !night
+        }
+        ViewCompat.requestApplyInsets(root)
     }
 }

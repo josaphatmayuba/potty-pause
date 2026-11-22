@@ -6,10 +6,10 @@ plugins {
 
 android {
     namespace = "com.famille.rappelpipi"
-    compileSdk = 34
+    compileSdk = 36
     defaultConfig {
         minSdk = 26
-        targetSdk = 34   // Google Play exige l'API 36 pour les nouvelles applis : a passer avant la mise en ligne.
+        targetSdk = 36
         versionCode = 10
         versionName = "1.9"
     }
@@ -33,7 +33,7 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core:1.13.1")
+    implementation("androidx.core:core:1.15.0")
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
