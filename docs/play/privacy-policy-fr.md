@@ -43,7 +43,7 @@ Aucun partage, vente ni cession à des tiers. Seul sous-traitant : **Google (Fir
 
 ## 6. Conservation
 - Compte parent et documents de ses tablettes : conservés **jusqu'à ce que le parent les supprime** (suppression d'une tablette ou du compte, section 7).
-- Codes d'appairage : durée de vie de 10 minutes ; effacés par la tablette dès l'appairage, et purgés automatiquement par une politique d'expiration (TTL) Firestore.
+- Codes d'appairage : durée de vie de 10 minutes ; inutilisables après expiration et effacés par la tablette dès l'appairage.
 - Demandes d'appairage : valables 5 minutes.
 - Après suppression, Google peut conserver des copies techniques de sauvegarde pendant une durée limitée avant effacement définitif.
 - Une tablette qui quitte le mode télécommande supprime son document cloud. Son identifiant anonyme d'authentification (sans donnée personnelle) peut subsister ; nous le supprimons sur demande.

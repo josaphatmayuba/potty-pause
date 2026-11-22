@@ -43,7 +43,7 @@ No sharing, sale or transfer to third parties. Sole processor: **Google (Firebas
 
 ## 6. Retention
 - Parent account and its tablets' documents: kept **until the parent deletes them** (deleting a tablet or the account, section 7).
-- Pairing codes: 10-minute lifetime; deleted by the tablet once paired, and purged automatically by a Firestore expiry (TTL) policy.
+- Pairing codes: 10-minute lifetime; unusable after expiry and deleted by the tablet once paired.
 - Pairing requests: valid for 5 minutes.
 - After deletion, Google may keep technical backup copies for a limited time before final erasure.
 - A tablet leaving remote-control mode deletes its cloud document. Its anonymous authentication identifier (no personal data) may remain; we delete it on request.
